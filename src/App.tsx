@@ -24,8 +24,8 @@ function App() {
   }, [refresh])
 
   const onGenerated = useCallback(() => {
-    // Newly generated articles are already in localStorage; just re-merge.
-    void refresh()
+    // The backend just wrote new JSON files — reload from disk.
+    void refresh(true)
   }, [refresh])
 
   return (
@@ -50,7 +50,7 @@ function App() {
           generert på tull. Ikke tilknyttet VG eller Dagbladet.
         </p>
         <p className="small">
-          Bilder er tilfeldige (picsum.photos). Saker skrives av en lokal LLM.
+          Bilder er tilfeldige bilder hentet fra nettet. Saker skrives av en lokal LLM.
         </p>
       </footer>
     </div>

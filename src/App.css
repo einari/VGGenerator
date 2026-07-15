@@ -130,12 +130,18 @@
 }
 
 .spinner {
+  display: inline-block;
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.45);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+  vertical-align: -2px;
+}
+.spinner--dark {
+  border-color: rgba(0, 0, 0, 0.2);
+  border-top-color: var(--ink);
 }
 @keyframes spin {
   to {
@@ -259,6 +265,101 @@
 }
 .btn-ghost:hover {
   border-color: var(--meta);
+}
+.btn-ghost:disabled,
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ---------- Generate dialog ---------- */
+.modal--gen {
+  width: 480px;
+}
+.count-field {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px !important;
+}
+.count-field input {
+  width: 84px;
+  margin-top: 0;
+}
+.topics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: 2px;
+  margin-bottom: 12px;
+}
+.topic-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.topic-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--meta);
+}
+.topic-row input {
+  flex: 1;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.topic-row input:focus {
+  outline: 2px solid var(--focus);
+  border-color: var(--focus);
+}
+.gen-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--meta);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px;
+  text-decoration: underline;
+}
+.btn-link:hover {
+  color: var(--ink);
+}
+.dialog-status,
+.dialog-error {
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+.dialog-status {
+  background: var(--bg-muted);
+  color: var(--ink-soft);
+}
+.dialog-error {
+  background: #fdecec;
+  color: var(--red-dark);
+  border: 1px solid #f3b9b9;
 }
 
 /* ---------- Content ---------- */

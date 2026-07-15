@@ -2,84 +2,101 @@
 
 En **parodi** på norske løssalgsaviser (VG / Dagbladet). Nettsiden ser ut som en
 ekte tabloid-forside, men alt innholdet er oppdiktet og skrevet av en **lokal LLM**
-via et OpenAI-kompatibelt API. Ingen backend – artiklene ligger som statiske
-JSON-filer og/eller genereres rett i nettleseren.
+(f.eks. oMLX / MLX) via et OpenAI-kompatibelt API. En liten **Node-backend** kaller
+modellen og lagrer sakene som JSON-filer på disk.
 
 > ⚠️ Alt innhold er tull og fiksjon. Ikke tilknyttet VG eller Dagbladet.
 
-## Slik funker det
+## Arkitektur
 
-- **Forsiden, seksjoner og artikkelvisning** er en React + Vite-app stylet som VG.
-- **Artikler** lagres som JSON under [public/articles/](public/articles/): en
-  `index.json` (nyeste først) + én fil per sak. Nettleseren `fetch`-er dem.
-- **Bilder** er tilfeldige, forhåndslastede bilder i [public/images/](public/images/).
-  Hver artikkel får et bilde **deterministisk** ut fra sin id (djb2-hash), så samme
-  sak alltid viser samme bilde.
-- **Generering** skjer på to måter, begge mot en lokal OpenAI-kompatibel server
-  (standard `http://127.0.0.1:8000/v1`, f.eks. MLX / `mlx_lm.server`):
-  1. **Knapp i nettleseren** – «✨ Generer nyheter» øverst til høyre. Nye saker
-     lagres i `localStorage` og flettes inn i strømmen.
-  2. **Node-skript** – skriver nye JSON-filer til `public/articles/`.
+```text
+Nettleser (React/Vite)  ──/api──►  Node-backend  ──►  lokal LLM (oMLX, :8000)
+      ▲                                  │
+      └── leser JSON ◄───── skriver ─────┘
+              public/articles/*.json
+```
 
-Selve **redaksjonelle stilen** (overskriftsmønstre, ingress, sitater, seksjoner)
-er kodet som systemprompt i [prompts/system-prompt.md](prompts/system-prompt.md) –
-samme fil brukes av både nettleseren og Node-skriptet.
+- **Frontend** ([src/](src/)): React + Vite, stylet som VG. Leser artikler som
+  statiske JSON-filer.
+- **Backend** ([server/index.mjs](server/index.mjs)): kaller LLM-en (API-nøkkel
+  **server-side** fra `.env`), skriver sakene til [public/articles/](public/articles/)
+  og oppdaterer `index.json`. Dermed ligger artiklene på disk og overlever
+  omlasting/ny nettleser.
+- **Bilder**: forhåndslastede, tilfeldige bilder i [public/images/](public/images/).
+  Hver sak får ett bilde **deterministisk** ut fra sin id (djb2-hash).
+- **Redaksjonell stil**: kodet som systemprompt i
+  [prompts/system-prompt.md](prompts/system-prompt.md).
 
 ## Kom i gang
 
 ```bash
-yarn            # installer
-yarn seed       # (valgfritt) skriv 12 håndlagde eksempelsaker – kjøres allerede
-yarn dev        # start dev-server på http://localhost:5173
+yarn                     # installer
+cp .env.example .env      # legg inn LLM_API_KEY (se under)
+yarn dev                  # starter BÅDE backend (:8787) og nettside (:5173)
 ```
 
-Appen har allerede seed-innhold, så den funker uten LLM.
+Appen har allerede seed-innhold, så forsiden funker selv uten LLM.
 
-### Generere ekte LLM-innhold
+### API-nøkkel (oMLX)
 
-Serveren i dette oppsettet krever en **API-nøkkel**.
-
-**I nettleseren:** trykk tannhjulet ⚙ ved siden av «Generer nyheter», fyll inn
-API-nøkkel (og evt. base-URL / modell), lagre – og trykk «Generer nyheter».
-I dev proxyer Vite `/llm` → `http://127.0.0.1:8000` slik at nettleseren slipper
-CORS (se [vite.config.ts](vite.config.ts)).
-
-**Som filer på disk:**
+oMLX krever en nøkkel for forespørsler. Finn den i oMLX under **General →
+Security** (der kan du også slå av kravet). Legg den i `.env`:
 
 ```bash
-LLM_API_KEY=din-nøkkel yarn generate --count 8
-# valgfritt: --sections nyheter,sport,forbruker
-# env: LLM_BASE_URL (default http://127.0.0.1:8000/v1), LLM_MODEL (default: første modell)
+LLM_API_KEY=din-nøkkel-her
 ```
 
-Skriptet henter modell-liste fra `/v1/models`, ber modellen om JSON, og skriver
-sakene til `public/articles/` + oppdaterer `index.json`.
+Nøkkelen leses kun av backend – den sendes **aldri** til nettleseren, og du
+skriver den inn **én gang**.
+
+## Generere nyheter
+
+Trykk **«✨ Generer nyheter»** øverst til høyre. I dialogen:
+
+- velg **antall saker** – du får like mange **tema-felt**,
+- skriv et tema per sak (eller la stå tomt for «fritt valg»),
+- **🎲 Foreslå temaer** lar modellen finne på temaer for deg,
+- **Generer** skriver sakene til disk og oppdaterer forsiden.
+
+### Fra kommandolinjen
+
+```bash
+yarn generate --count 8
+yarn generate --count 4 --topics "måke tar pølse; strømpris i taket"
+```
+
+## Kommandoer
+
+| Kommando        | Hva                                                    |
+| --------------- | ------------------------------------------------------ |
+| `yarn dev`      | Backend + Vite (med `/api`-proxy) samtidig             |
+| `yarn dev:web`  | Bare Vite                                              |
+| `yarn server`   | Bare backend                                           |
+| `yarn build`    | Typecheck + produksjonsbygg                            |
+| `yarn preview`  | Server produksjonsbygget                               |
+| `yarn seed`     | Skriv håndlagde eksempelsaker til `public/articles/`   |
+| `yarn generate` | Generer saker med lokal LLM → JSON-filer               |
+| `yarn lint`     | Oxlint                                                 |
 
 ## Prosjektstruktur
 
 ```text
 prompts/
-  system-prompt.md    # redaksjonell stil (delt kilde for nettleser + node)
-  sections.json       # seksjoner + forfatternavn (node-siden)
+  system-prompt.md    # redaksjonell stil (delt kilde)
+  sections.json       # seksjoner + forfatternavn
+server/
+  index.mjs           # /api/generate, /api/topics, /api/health
 scripts/
-  store.mjs           # delte hjelpere: bilde-hash, skjema, skriv JSON, index
+  store.mjs           # skjema, bilde-hash, skriv JSON + index
+  llm.mjs             # delt LLM-logikk (generate, suggestTopics)
+  env.mjs             # enkel .env-laster
   seed.mjs            # håndlagde eksempelsaker
-  generate.mjs        # LLM-generator som skriver JSON-filer
+  generate.mjs        # CLI-generator
+  dev.mjs             # kjør backend + vite sammen
 public/
   articles/           # index.json + én JSON-fil per sak
-  images/             # 24 tilfeldige bilder (picsum.photos)
+  images/             # tilfeldige bilder (picsum, loremflickr, vg.no)
 src/
-  lib/                # typer, ruter, datalasting, LLM-klient, prompt
-  components/         # Header, FrontPage, SectionPage, ArticleView, GeneratePanel …
+  lib/                # typer, ruter, datalasting, backend-klient
+  components/          # Header, FrontPage, ArticleView, GeneratePanel …
 ```
-
-## Kommandoer
-
-| Kommando         | Hva                                             |
-| ---------------- | ----------------------------------------------- |
-| `yarn dev`       | Dev-server med HMR + `/llm`-proxy               |
-| `yarn build`     | Typecheck + produksjonsbygg                     |
-| `yarn preview`   | Server produksjonsbygget                        |
-| `yarn seed`      | Skriv eksempelsaker til `public/articles/`      |
-| `yarn generate`  | Generer saker med lokal LLM → JSON-filer        |
-| `yarn lint`      | Oxlint                                          |

@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Local secrets
+.env
+.env.*
+!.env.example
+
 # Playwright / verification artifacts
 .playwright-mcp
 /*.png

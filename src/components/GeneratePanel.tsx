@@ -1,68 +1,78 @@
 import { useState } from 'react'
 import type { Article } from '../lib/types'
-import { SECTIONS } from '../lib/sections'
-import {
-  generateArticles,
-  getSettings,
-  listModels,
-  saveSettings,
-  type LLMSettings,
-} from '../lib/generator'
+import { generateArticles, suggestTopics } from '../lib/api'
+
+function resize(arr: string[], n: number): string[] {
+  const next = arr.slice(0, n)
+  while (next.length < n) next.push('')
+  return next
+}
+
+function msg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+const DEFAULT_COUNT = 6
 
 export function GeneratePanel({
   onGenerated,
 }: {
   onGenerated: (fresh: Article[]) => void
 }) {
-  const [settings, setSettings] = useState<LLMSettings>(() => getSettings())
+  const [open, setOpen] = useState(false)
+  const [count, setCount] = useState(DEFAULT_COUNT)
+  const [topics, setTopics] = useState<string[]>(() => resize([], DEFAULT_COUNT))
   const [busy, setBusy] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
-  const [modelHint, setModelHint] = useState<string | null>(null)
+
+  function changeCount(n: number) {
+    const c = Math.max(1, Math.min(12, Math.floor(n) || 1))
+    setCount(c)
+    setTopics((prev) => resize(prev, c))
+  }
+
+  function setTopic(i: number, value: string) {
+    setTopics((prev) => prev.map((t, idx) => (idx === i ? value : t)))
+  }
+
+  async function handleSuggest() {
+    if (busy || suggesting) return
+    setSuggesting(true)
+    setError(null)
+    setStatus('Finner på temaer …')
+    try {
+      const t = await suggestTopics(count)
+      setTopics(resize(t, count))
+      setStatus(null)
+    } catch (err) {
+      setError(msg(err))
+      setStatus(null)
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   async function handleGenerate() {
     if (busy) return
     setBusy(true)
     setError(null)
-    setStatus('Starter …')
+    setStatus('Genererer … modellen skriver, dette kan ta litt tid.')
     try {
-      const fresh = await generateArticles(settings, {
-        onStatus: (m) => setStatus(m),
-      })
+      const fresh = await generateArticles(
+        count,
+        topics.map((t) => t.trim()),
+      )
       onGenerated(fresh)
-      setStatus(`✓ ${fresh.length} nye saker`)
+      setOpen(false)
+      setStatus(`✓ ${fresh.length} nye saker lagret`)
       window.setTimeout(() => setStatus(null), 4000)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setError(msg)
+      setError(msg(err))
       setStatus(null)
-      if (/401|403|nøkkel/i.test(msg)) setShowSettings(true)
     } finally {
       setBusy(false)
-    }
-  }
-
-  function update<K extends keyof LLMSettings>(key: K, value: LLMSettings[K]) {
-    setSettings((s) => ({ ...s, [key]: value }))
-  }
-
-  function persistAndClose() {
-    saveSettings(settings)
-    setShowSettings(false)
-  }
-
-  async function testConnection() {
-    setModelHint('Tester …')
-    try {
-      const models = await listModels(settings)
-      setModelHint(
-        models.length
-          ? `OK – fant: ${models.slice(0, 3).join(', ')}${models.length > 3 ? ' …' : ''}`
-          : 'Tilkoblet, men ingen modeller rapportert.',
-      )
-    } catch (err) {
-      setModelHint(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -71,105 +81,116 @@ export function GeneratePanel({
       <button
         type="button"
         className="btn-generate"
-        onClick={handleGenerate}
-        disabled={busy}
+        onClick={() => {
+          setError(null)
+          setOpen(true)
+        }}
       >
-        {busy ? (
-          <>
-            <span className="spinner" aria-hidden="true" /> Genererer …
-          </>
-        ) : (
-          <>✨ Generer nyheter</>
-        )}
+        ✨ Generer nyheter
       </button>
-      <button
-        type="button"
-        className="btn-gear"
-        title="Innstillinger for LLM"
-        aria-label="Innstillinger"
-        onClick={() => setShowSettings(true)}
-      >
-        ⚙
-      </button>
+      {status && !open && <span className="genstatus">{status}</span>}
 
-      {status && <span className="genstatus">{status}</span>}
-      {error && (
-        <span className="generror" role="alert">
-          {error}
-        </span>
-      )}
-
-      {showSettings && (
-        <div className="modal-backdrop" onClick={() => setShowSettings(false)}>
+      {open && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            if (!busy) setOpen(false)
+          }}
+        >
           <div
-            className="modal"
+            className="modal modal--gen"
             role="dialog"
             aria-modal="true"
-            aria-label="LLM-innstillinger"
+            aria-label="Generer nyheter"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2>LLM-innstillinger</h2>
+            <h2>Generer nyheter</h2>
             <p className="modal-sub">
-              Saker skrives av en lokal OpenAI-kompatibel modell og lagres i nettleseren.
+              Skriv et tema per sak, eller la felt stå tomme for fritt valg. Sakene
+              skrives av den lokale modellen og lagres på disk.
             </p>
 
-            <label>
-              Base-URL
-              <input
-                type="text"
-                value={settings.baseUrl}
-                onChange={(e) => update('baseUrl', e.target.value)}
-                placeholder="/llm/v1"
-              />
-              <small>Dev-serveren proxyer «/llm» til 127.0.0.1:8000.</small>
-            </label>
-
-            <label>
-              API-nøkkel
-              <input
-                type="password"
-                value={settings.apiKey}
-                onChange={(e) => update('apiKey', e.target.value)}
-                placeholder="Bearer-token til serveren"
-                autoComplete="off"
-              />
-            </label>
-
-            <label>
-              Modell (valgfritt)
-              <input
-                type="text"
-                value={settings.model}
-                onChange={(e) => update('model', e.target.value)}
-                placeholder="Auto (første tilgjengelige)"
-              />
-            </label>
-
-            <label>
-              Antall saker per generering
+            <label className="count-field">
+              Antall saker
               <input
                 type="number"
                 min={1}
                 max={12}
-                value={settings.count}
-                onChange={(e) =>
-                  update('count', Math.max(1, Math.min(12, Number(e.target.value) || 1)))
-                }
+                value={count}
+                disabled={busy}
+                onChange={(e) => changeCount(Number(e.target.value))}
               />
             </label>
 
-            <p className="modal-sub">
-              Seksjoner det trekkes fra: {SECTIONS.map((s) => s.label).join(', ')}.
-            </p>
+            <div className="topics">
+              {topics.map((t, i) => (
+                <div className="topic-row" key={i}>
+                  <span className="topic-num">{i + 1}</span>
+                  <input
+                    type="text"
+                    value={t}
+                    disabled={busy}
+                    placeholder="Tema – la stå tomt for fritt valg"
+                    onChange={(e) => setTopic(i, e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
 
-            {modelHint && <p className="modal-hint">{modelHint}</p>}
+            <div className="gen-toolbar">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={handleSuggest}
+                disabled={busy || suggesting}
+              >
+                {suggesting ? (
+                  <>
+                    <span className="spinner spinner--dark" aria-hidden="true" /> Foreslår …
+                  </>
+                ) : (
+                  <>🎲 Foreslå temaer</>
+                )}
+              </button>
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => setTopics(resize([], count))}
+                disabled={busy}
+              >
+                Tøm
+              </button>
+            </div>
+
+            {status && open && <p className="dialog-status">{status}</p>}
+            {error && (
+              <p className="dialog-error" role="alert">
+                {error}
+              </p>
+            )}
 
             <div className="modal-actions">
-              <button type="button" className="btn-ghost" onClick={testConnection}>
-                Test tilkobling
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+              >
+                Avbryt
               </button>
-              <button type="button" className="btn-primary" onClick={persistAndClose}>
-                Lagre
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleGenerate}
+                disabled={busy}
+              >
+                {busy ? (
+                  <>
+                    <span className="spinner" aria-hidden="true" /> Genererer …
+                  </>
+                ) : (
+                  <>Generer {count} saker</>
+                )}
               </button>
             </div>
           </div>

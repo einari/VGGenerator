@@ -44,16 +44,22 @@ export function imageForId(id, count = imageCount()) {
 }
 
 /** Build the user message that pins the exact JSON output schema. */
-export function buildUserPrompt(count, sectionIds) {
+export function buildUserPrompt(count, sectionIds, topics = []) {
   const chosen = SECTIONS.filter((s) => sectionIds.includes(s.id))
   const menu = chosen
     .map((s) => `- "${s.id}" (${s.label}): ${s.brief}`)
     .join('\n')
+  const hasTopics = topics.some((t) => t.trim())
+  const topicBlock = hasTopics
+    ? `\nSkriv én sak per punkt under, i denne rekkefølgen. «Fritt valg» betyr at du selv velger tema. Velg alltid den seksjonen som passer best til temaet:\n${topics
+        .map((t, i) => `${i + 1}. ${t.trim() || 'fritt valg'}`)
+        .join('\n')}\n`
+    : ''
   return `Lag ${count} oppdiktede nyhetssaker i tabloid-stil (VG/Dagbladet). Innholdet skal være absurd, underholdende og fullstendig oppspinn – men helt ekte i formen.
 
 Fordel sakene på disse seksjonene:
 ${menu}
-
+${topicBlock}
 Krav:
 - Bruk fiktive personnavn, alltid med alder i parentes ved første nevning: «Ola (52)».
 - Overskrift: kort, muntlig, ofte «kolon + – sitat». Ikke punktum til slutt.

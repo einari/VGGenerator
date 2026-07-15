@@ -30,21 +30,6 @@ export const SECTIONS: Section[] = [
   },
 ]
 
-export const AUTHORS = [
-  'Mette Brakstad',
-  'Ola-Kristian Nilsen',
-  'Trine Hovden',
-  'Sigurd Aalborg',
-  'Camilla Ryen',
-  'Bjørnar Sætre',
-  'Ingvild Rosenlund',
-  'Kjetil Mork',
-  'Line Fjeld',
-  'Håvard Ulriksen',
-  'Nora Dalseth',
-  'Anders Kvamme',
-]
-
 export function sectionLabel(id: string): string {
   return SECTIONS.find((s) => s.id === id)?.label ?? id
 }
