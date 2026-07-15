@@ -22,8 +22,11 @@ Nettleser (React/Vite)  ──/api──►  Node-backend  ──►  lokal LLM 
   **server-side** fra `.env`), skriver sakene til [public/articles/](public/articles/)
   og oppdaterer `index.json`. Dermed ligger artiklene på disk og overlever
   omlasting/ny nettleser.
-- **Bilder**: forhåndslastede, tilfeldige bilder i [public/images/](public/images/).
-  Hver sak får ett bilde **deterministisk** ut fra sin id (djb2-hash).
+- **Bilder**: for hver genererte sak ber modellen om engelske søkeord
+  (`imageQuery`), og backend laster ned et **relevant** foto (loremflickr /
+  Flickr CC) til `public/images/gen/<id>.jpg`. Feiler nedlastingen, faller den
+  tilbake på et forhåndslastet bilde i [public/images/](public/images/) valgt
+  **deterministisk** ut fra sakens id (djb2-hash).
 - **Redaksjonell stil**: kodet som systemprompt i
   [prompts/system-prompt.md](prompts/system-prompt.md).
 

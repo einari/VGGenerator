@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { Article } from '../lib/types'
 import { generateArticles, suggestTopics } from '../lib/api'
+import { TopicRow, type Slot } from './TopicRow'
 
-function resize(arr: string[], n: number): string[] {
+function resize(arr: Slot[], n: number): Slot[] {
   const next = arr.slice(0, n)
-  while (next.length < n) next.push('')
+  while (next.length < n) next.push({ topic: '', keywords: [] })
   return next
 }
 
@@ -21,7 +22,7 @@ export function GeneratePanel({
 }) {
   const [open, setOpen] = useState(false)
   const [count, setCount] = useState(DEFAULT_COUNT)
-  const [topics, setTopics] = useState<string[]>(() => resize([], DEFAULT_COUNT))
+  const [slots, setSlots] = useState<Slot[]>(() => resize([], DEFAULT_COUNT))
   const [busy, setBusy] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
@@ -30,11 +31,11 @@ export function GeneratePanel({
   function changeCount(n: number) {
     const c = Math.max(1, Math.min(12, Math.floor(n) || 1))
     setCount(c)
-    setTopics((prev) => resize(prev, c))
+    setSlots((prev) => resize(prev, c))
   }
 
-  function setTopic(i: number, value: string) {
-    setTopics((prev) => prev.map((t, idx) => (idx === i ? value : t)))
+  function setSlot(i: number, next: Slot) {
+    setSlots((prev) => prev.map((s, idx) => (idx === i ? next : s)))
   }
 
   async function handleSuggest() {
@@ -44,7 +45,10 @@ export function GeneratePanel({
     setStatus('Finner på temaer …')
     try {
       const t = await suggestTopics(count)
-      setTopics(resize(t, count))
+      // Fill the topic fields, preserving any keywords already entered.
+      setSlots((prev) =>
+        resize(prev, count).map((s, i) => ({ ...s, topic: t[i] ?? s.topic })),
+      )
       setStatus(null)
     } catch (err) {
       setError(msg(err))
@@ -62,7 +66,7 @@ export function GeneratePanel({
     try {
       const fresh = await generateArticles(
         count,
-        topics.map((t) => t.trim()),
+        slots.map((s) => ({ topic: s.topic.trim(), keywords: s.keywords })),
       )
       onGenerated(fresh)
       setOpen(false)
@@ -106,8 +110,8 @@ export function GeneratePanel({
           >
             <h2>Generer nyheter</h2>
             <p className="modal-sub">
-              Skriv et tema per sak, eller la felt stå tomme for fritt valg. Sakene
-              skrives av den lokale modellen og lagres på disk.
+              Skriv et tema per sak (eller la det stå tomt for fritt valg), og legg
+              til nøkkelord modellen må skrive saken rundt. Sakene lagres på disk.
             </p>
 
             <label className="count-field">
@@ -123,17 +127,14 @@ export function GeneratePanel({
             </label>
 
             <div className="topics">
-              {topics.map((t, i) => (
-                <div className="topic-row" key={i}>
-                  <span className="topic-num">{i + 1}</span>
-                  <input
-                    type="text"
-                    value={t}
-                    disabled={busy}
-                    placeholder="Tema – la stå tomt for fritt valg"
-                    onChange={(e) => setTopic(i, e.target.value)}
-                  />
-                </div>
+              {slots.map((s, i) => (
+                <TopicRow
+                  key={i}
+                  index={i}
+                  slot={s}
+                  disabled={busy}
+                  onChange={(next) => setSlot(i, next)}
+                />
               ))}
             </div>
 
@@ -155,7 +156,7 @@ export function GeneratePanel({
               <button
                 type="button"
                 className="btn-link"
-                onClick={() => setTopics(resize([], count))}
+                onClick={() => setSlots(resize([], count))}
                 disabled={busy}
               >
                 Tøm

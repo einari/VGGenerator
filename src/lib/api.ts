@@ -41,12 +41,17 @@ export async function health(): Promise<HealthInfo | null> {
   }
 }
 
+export interface TopicSlot {
+  topic: string
+  keywords: string[]
+}
+
 /** Generate articles on the backend (persisted to disk); returns the new ones. */
 export async function generateArticles(
   count: number,
-  topics: string[],
+  slots: TopicSlot[],
 ): Promise<Article[]> {
-  const data = await post<{ articles: Article[] }>('/generate', { count, topics })
+  const data = await post<{ articles: Article[] }>('/generate', { count, slots })
   return data.articles
 }
 

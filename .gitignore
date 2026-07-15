@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Runtime-downloaded per-article images
+/public/images/gen/
+
 # Playwright / verification artifacts
 .playwright-mcp
 /*.png

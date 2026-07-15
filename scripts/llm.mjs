@@ -10,6 +10,7 @@ import {
   writeArticle,
   rebuildIndex,
 } from './store.mjs'
+import { downloadArticleImage } from './images.mjs'
 
 const baseUrl = () => process.env.LLM_BASE_URL || 'http://127.0.0.1:8000/v1'
 const apiKey = () => process.env.LLM_API_KEY || ''
@@ -91,19 +92,82 @@ export async function suggestTopics(count = 6) {
   return parseStringArray(content).slice(0, count)
 }
 
+/** Extract a single JSON object from a raw model response. */
+function parseObject(text) {
+  let t = String(text).trim()
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fence) t = fence[1].trim()
+  const a = t.indexOf('{')
+  const b = t.lastIndexOf('}')
+  if (a !== -1 && b !== -1) t = t.slice(a, b + 1)
+  return JSON.parse(t)
+}
+
+/** Which of `keywords` are absent from the article's visible text. */
+function missingKeywords(article, keywords) {
+  const hay = [
+    article.title,
+    article.lead,
+    ...(article.body || []),
+    ...(article.factBox?.items || []),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return keywords.filter((k) => k && !hay.includes(k.toLowerCase()))
+}
+
+/** Ask the model to rewrite one article so the given keywords appear verbatim. */
+async function repairKeywords(model, rawArticle, keywords) {
+  const payload = {
+    section: rawArticle.section,
+    kicker: rawArticle.kicker,
+    title: rawArticle.title,
+    lead: rawArticle.lead,
+    body: rawArticle.body,
+    factBox: rawArticle.factBox,
+    imageQuery: rawArticle.imageQuery,
+    author: rawArticle.author,
+  }
+  const content = await chatCompletion(
+    model,
+    [
+      {
+        role: 'system',
+        content:
+          'Du er redaktør i en norsk tabloid og skriver om saker på bokmål uten å endre stil eller lengde.',
+      },
+      {
+        role: 'user',
+        content: `Her er en nyhetssak som JSON:\n${JSON.stringify(payload)}\n\nSkriv saken om slik at ALLE disse ordene står ordrett i brødteksten (body): ${keywords
+          .map((k) => `«${k}»`)
+          .join(
+            ', ',
+          )}. Behold samme tema, seksjon, stil, lengde og struktur. Returner KUN gyldig JSON med de samme feltene.`,
+      },
+    ],
+    4096,
+  )
+  return parseObject(content)
+}
+
 /**
  * Generate `count` articles, write them to public/articles/, rebuild the
  * index, and return the freshly written article objects (newest first).
  */
-export async function generate({ count = 6, sections, topics = [] } = {}) {
+export async function generate({ count = 6, sections, slots, topics = [] } = {}) {
   const sectionIds =
     Array.isArray(sections) && sections.length ? sections : SECTIONS.map((s) => s.id)
+  // slots = [{topic, keywords[]}]; fall back to plain topic strings.
+  const effectiveSlots =
+    Array.isArray(slots) && slots.length
+      ? slots
+      : topics.map((t) => ({ topic: t, keywords: [] }))
   const model = await resolveModel()
   const content = await chatCompletion(
     model,
     [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt(count, sectionIds, topics) },
+      { role: 'user', content: buildUserPrompt(count, sectionIds, effectiveSlots) },
     ],
     4096,
   )
@@ -111,13 +175,43 @@ export async function generate({ count = 6, sections, topics = [] } = {}) {
   const raw = parseArticlesResponse(content)
   const now = Date.now()
   const written = []
-  raw.forEach((r, i) => {
+  for (let i = 0; i < raw.length; i++) {
+    const r = raw[i]
     const publishedAt = new Date(now - i * 1000).toISOString()
-    const article = finalizeArticle(r, { publishedAt, index: i, source: 'llm' })
-    if (!article.title || !article.body.length) return
+    let article = finalizeArticle(r, { publishedAt, index: i, source: 'llm' })
+    if (!article.title || !article.body.length) continue
+
+    // Enforce the slot's keywords: verify they made it in, else one rewrite pass.
+    const keywords = effectiveSlots[i]?.keywords || []
+    if (keywords.length && missingKeywords(article, keywords).length) {
+      try {
+        const repairedRaw = await repairKeywords(model, r, keywords)
+        const fixed = finalizeArticle(repairedRaw, { publishedAt, index: i, source: 'llm' })
+        // Keep the rewrite only if it covers more keywords; preserve identity.
+        if (
+          fixed.title &&
+          fixed.body.length &&
+          missingKeywords(fixed, keywords).length < missingKeywords(article, keywords).length
+        ) {
+          fixed.id = article.id
+          fixed.image = article.image
+          article = fixed
+        }
+      } catch {
+        /* keep best-effort original */
+      }
+    }
+
+    // Fetch a content-relevant image; keep the pool fallback on failure.
+    const img = await downloadArticleImage(article.id, article.imageQuery, article.section)
+    if (img) {
+      article.image = img.path
+      if (!r.imageAlt) article.imageAlt = `Illustrasjonsfoto (${img.tags})`
+    }
+
     writeArticle(article)
     written.push(article)
-  })
+  }
   rebuildIndex()
   return written
 }

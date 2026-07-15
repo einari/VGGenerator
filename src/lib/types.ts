@@ -33,6 +33,8 @@ export interface Article {
   publishedAt: string
   /** Path to the image, e.g. "/images/img-03.jpg". */
   image: string
+  /** English keywords the image was searched with (LLM-provided). */
+  imageQuery?: string
   imageAlt: string
   /** Premium ("VG+") teaser. */
   isPlus: boolean

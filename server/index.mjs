@@ -79,13 +79,23 @@ const server = createServer(async (req, res) => {
     if (method === 'POST' && path === '/api/generate') {
       const body = await readBody(req)
       const count = clampCount(body.count)
-      const topics = Array.isArray(body.topics)
-        ? body.topics.slice(0, count).map((t) => String(t))
-        : []
+      // slots = [{topic, keywords[]}] (preferred); topics[] is the legacy form.
+      const rawSlots = Array.isArray(body.slots)
+        ? body.slots
+        : Array.isArray(body.topics)
+          ? body.topics.map((t) => ({ topic: t, keywords: [] }))
+          : []
+      const slots = rawSlots.slice(0, count).map((s) => ({
+        topic: String(s?.topic || '').slice(0, 200),
+        keywords: (Array.isArray(s?.keywords) ? s.keywords : [])
+          .slice(0, 12)
+          .map((k) => String(k).slice(0, 40).trim())
+          .filter(Boolean),
+      }))
       const sections = Array.isArray(body.sections)
         ? body.sections.map((s) => String(s))
         : undefined
-      const articles = await generate({ count, topics, sections })
+      const articles = await generate({ count, slots, sections })
       console.log(`✓ genererte ${articles.length} saker`)
       return send(res, 200, { articles })
     }

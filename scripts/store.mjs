@@ -43,29 +43,55 @@ export function imageForId(id, count = imageCount()) {
   return `/images/img-${String(n).padStart(2, '0')}.jpg`
 }
 
+/** Normalise a slot which may be a plain topic string or {topic, keywords}. */
+function normalizeSlot(slot) {
+  if (typeof slot === 'string') return { topic: slot, keywords: [] }
+  return {
+    topic: String(slot?.topic || ''),
+    keywords: Array.isArray(slot?.keywords)
+      ? slot.keywords.map((k) => String(k).trim()).filter(Boolean)
+      : [],
+  }
+}
+
 /** Build the user message that pins the exact JSON output schema. */
-export function buildUserPrompt(count, sectionIds, topics = []) {
+export function buildUserPrompt(count, sectionIds, slots = []) {
   const chosen = SECTIONS.filter((s) => sectionIds.includes(s.id))
   const menu = chosen
     .map((s) => `- "${s.id}" (${s.label}): ${s.brief}`)
     .join('\n')
-  const hasTopics = topics.some((t) => t.trim())
-  const topicBlock = hasTopics
-    ? `\nSkriv én sak per punkt under, i denne rekkefølgen. «Fritt valg» betyr at du selv velger tema. Velg alltid den seksjonen som passer best til temaet:\n${topics
-        .map((t, i) => `${i + 1}. ${t.trim() || 'fritt valg'}`)
-        .join('\n')}\n`
+  const norm = slots.map(normalizeSlot)
+  const hasContent = norm.some((s) => s.topic.trim() || s.keywords.length)
+  const anyKeywords = norm.some((s) => s.keywords.length)
+  const slotBlock = hasContent
+    ? `\nSkriv én sak per punkt under, i denne rekkefølgen. «Fritt valg» betyr at du selv velger tema. Velg alltid den seksjonen som passer best.\n${norm
+        .map((s, i) => {
+          const topic = s.topic.trim() || 'fritt valg'
+          const kw = s.keywords.length
+            ? ` — MÅ inneholde disse ordene ordrett i brødteksten: ${s.keywords
+                .map((k) => `«${k}»`)
+                .join(', ')}`
+            : ''
+          return `${i + 1}. Tema: ${topic}${kw}`
+        })
+        .join('\n')}${
+        anyKeywords
+          ? '\n\nVIKTIG: Nøkkelordene som er oppgitt for en sak SKAL forekomme ordrett i den sakens brødtekst. Vev dem inn naturlig, men de må stå der.'
+          : ''
+      }\n`
     : ''
   return `Lag ${count} oppdiktede nyhetssaker i tabloid-stil (VG/Dagbladet). Innholdet skal være absurd, underholdende og fullstendig oppspinn – men helt ekte i formen.
 
 Fordel sakene på disse seksjonene:
 ${menu}
-${topicBlock}
+${slotBlock}
 Krav:
 - Bruk fiktive personnavn, alltid med alder i parentes ved første nevning: «Ola (52)».
 - Overskrift: kort, muntlig, ofte «kolon + – sitat». Ikke punktum til slutt.
 - kicker: 1–3 ord, gjerne VERSALER (tema/sted).
 - lead (ingress): 1–2 setninger som lokker, holder igjen poenget.
 - body: 4–8 korte avsnitt. Legg minst to sitater; sitatavsnitt starter med «– » (tankestrek) og attribueres, f.eks. «– Helt vilt, sier Kari (33).»
+- imageQuery: 1–3 ENGELSKE søkeord (adskilt med komma) for et illustrasjonsfoto som passer saken, f.eks. «seagull, beach» eller «roundabout, traffic». Bruk konkrete substantiv, ingen navn.
 - Variér sakene; ikke gjenta samme vri.
 
 Svar med KUN gyldig JSON (ingen markdown, ingen forklaring) på nøyaktig dette skjemaet:
@@ -78,6 +104,7 @@ Svar med KUN gyldig JSON (ingen markdown, ingen forklaring) på nøyaktig dette 
       "lead": "<ingress>",
       "body": ["<avsnitt>", "..."],
       "factBox": { "title": "Dette vet vi", "items": ["<punkt>", "..."] },
+      "imageQuery": "<1-3 engelske søkeord>",
       "author": "<fullt navn>"
     }
   ]
@@ -105,12 +132,21 @@ export function parseArticlesResponse(text) {
 
 const VALID_SECTIONS = new Set(SECTIONS.map((s) => s.id))
 
+// Small models occasionally leak stray CJK/Hangul/Kana tokens into otherwise
+// Norwegian text. Strip those scripts (never valid here); keep æøå, «», – etc.
+const FOREIGN_SCRIPTS =
+  /[ᄀ-ᇿ぀-ヿ㄰-㆏㐀-䶿一-鿿가-힯＀-￯]/g
+
+function clean(str) {
+  return String(str).replace(FOREIGN_SCRIPTS, '').replace(/[ \t]{2,}/g, ' ').trim()
+}
+
 /** Normalise one raw LLM article into a full, valid Article record. */
 export function finalizeArticle(raw, { publishedAt, index = 0, source = 'llm' }) {
   const section = VALID_SECTIONS.has(raw.section) ? raw.section : 'nyheter'
-  const title = String(raw.title || 'Uten tittel').trim()
+  const title = clean(raw.title || 'Uten tittel')
   const body = (Array.isArray(raw.body) ? raw.body : [String(raw.body || '')])
-    .map((p) => String(p).trim())
+    .map((p) => clean(p))
     .filter(Boolean)
   const idBase = slugify(title) || `sak-${index}`
   const id = `${idBase}-${(hashString(title + index) % 100000)
@@ -119,21 +155,22 @@ export function finalizeArticle(raw, { publishedAt, index = 0, source = 'llm' })
   const factBox =
     raw.factBox && Array.isArray(raw.factBox.items) && raw.factBox.items.length
       ? {
-          title: String(raw.factBox.title || 'Dette vet vi'),
-          items: raw.factBox.items.map((i) => String(i).trim()).filter(Boolean),
+          title: clean(raw.factBox.title || 'Dette vet vi'),
+          items: raw.factBox.items.map((i) => clean(i)).filter(Boolean),
         }
       : undefined
   return {
     id,
     section,
-    kicker: String(raw.kicker || section).toUpperCase().slice(0, 24),
+    kicker: clean(raw.kicker || section).toUpperCase().slice(0, 24),
     title,
-    lead: String(raw.lead || '').trim(),
+    lead: clean(raw.lead || ''),
     body,
     factBox,
-    author: String(raw.author || AUTHORS[index % AUTHORS.length]).trim(),
+    author: clean(raw.author || AUTHORS[index % AUTHORS.length]),
     publishedAt,
     image: imageForId(id),
+    imageQuery: raw.imageQuery ? String(raw.imageQuery).slice(0, 80) : '',
     imageAlt: raw.imageAlt ? String(raw.imageAlt) : 'Illustrasjonsfoto',
     isPlus: typeof raw.isPlus === 'boolean' ? raw.isPlus : index % 5 === 0,
     featured: typeof raw.featured === 'boolean' ? raw.featured : index % 4 === 0,
