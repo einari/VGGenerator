@@ -1,0 +1,31 @@
+{
+  "id": "gront-gass-sjokk-det-er-en-alarm-212q",
+  "section": "nyheter",
+  "kicker": "NYHETER",
+  "title": "Grønt gass-sjokk – Det er en alarm",
+  "lead": "Miljøorganisasjon varsler om en skadelig gasslekkasje i et anlegg",
+  "body": [
+    "En miljøorganisasjon har varslet om en kritisk situasjon ved et industrielt anlegg i kommunen",
+    "Varslet om en lekkasje av en skadelig gass som kan påvirke lokalsamfunnet øyeblikkelig",
+    "Kilden hevder at anlegget har neglisjert sikkerheten rundt gasslagring",
+    "Dette skapte stor frykt blant innbyggerne og krever umiddelbar handling",
+    "Folk må ta til seg trusselen mot sin egen helse og sikkerhet"
+  ],
+  "factBox": {
+    "title": "Dette vet vi",
+    "items": [
+      "Fare for lokal helse",
+      "Manglende sikkerhet i anlegget",
+      "Umiddelbar tiltak nødvendig",
+      "Miljøskade i lokalsamfunnet"
+    ]
+  },
+  "author": "Ola (38)",
+  "publishedAt": "2026-07-15T23:39:58.821Z",
+  "image": "/images/gen/gront-gass-sjokk-det-er-en-alarm-212q.jpg",
+  "imageQuery": "factory, gas leak, pollution",
+  "imageAlt": "Illustrasjonsfoto (factory,gas)",
+  "isPlus": false,
+  "featured": true,
+  "source": "llm"
+}

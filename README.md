@@ -58,6 +58,11 @@ Trykk **«✨ Generer nyheter»** øverst til høyre. I dialogen:
 
 - velg **antall saker** – du får like mange **tema-felt**,
 - skriv et tema per sak (eller la stå tomt for «fritt valg»),
+- legg til **nøkkelord** under hvert tema (+ for å legge til, × for å fjerne,
+  klikk for å redigere) – modellen skriver saken rundt dem. Backend sjekker
+  at nøkkelordene faktisk kom med, og ber modellen skrive om saken én gang hvis
+  ikke. Hvor godt de veves inn avhenger av modellen – større modeller treffer
+  bedre (sett `LLM_MODEL`).
 - **🎲 Foreslå temaer** lar modellen finne på temaer for deg,
 - **Generer** skriver sakene til disk og oppdaterer forsiden.
 

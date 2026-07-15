@@ -1,0 +1,31 @@
+{
+  "id": "den-gronne-trusselen-det-er-en-fare-21nv",
+  "section": "forbruker",
+  "kicker": "FORBRUKER",
+  "title": "Den grønne trusselen – Det er en fare",
+  "lead": "Forbrukerør i et varsler om giftig grønt i matvaremarkedet",
+  "body": [
+    "En forsker har utstedt en sterk advarsel mot en ny type grønt som truer forbrukerne",
+    "Denne trusselen handler om en ukjent kjemisk substans som kan skade folkehelsen over tid",
+    "Advarselen sier at forbrukere må være ekstremt forsiktige med produktet",
+    "Det er en økende trend for slike farlige produkter i supermarkedene",
+    "Dette er en direkte alarm mot manglende kvalitetskontroll"
+  ],
+  "factBox": {
+    "title": "Dette vet vi",
+    "items": [
+      "Fare for langsiktig helseskade",
+      "Manglende kvalitetskontroll",
+      "Forbrukerne må være varsomme",
+      "Overvåking av matvarer pågår"
+    ]
+  },
+  "author": "Kari (7)",
+  "publishedAt": "2026-07-15T23:40:00.821Z",
+  "image": "/images/gen/den-gronne-trusselen-det-er-en-fare-21nv.jpg",
+  "imageQuery": "produce, toxic, food safety",
+  "imageAlt": "Illustrasjonsfoto (produce,toxic)",
+  "isPlus": false,
+  "featured": false,
+  "source": "llm"
+}
