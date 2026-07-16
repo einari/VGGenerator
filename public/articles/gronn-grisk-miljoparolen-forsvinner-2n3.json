@@ -1,0 +1,31 @@
+{
+  "id": "gronn-grisk-miljoparolen-forsvinner-2n3",
+  "section": "forbruker",
+  "kicker": "MILJØ-ALARM",
+  "title": "Grønn-grisk: Miljøparolen forsvinner",
+  "lead": "En kritisk miljøparol forsvinner, noe som skaper uro rundt miljøvernforpliktelsene",
+  "body": [
+    "En viktig miljøparol forsvinner, og skaper frykt for at forpliktelser blir ignorert",
+    "Forpliktelsene knyttet til miljøvern og klimaendringer blir nå et hett tema",
+    "Det er en dyp bekymring for at alt skal slippe unna",
+    "– Vi må være på vakt mot at de påståtte løsningene forsvinner, sier en miljøvernforkjemper",
+    "Dette viser at tilliten til de nåværende tiltakene er i fare"
+  ],
+  "factBox": {
+    "title": "Dette vet vi",
+    "items": [
+      "Miljøparolen er kritisk",
+      "Tilliten til tiltakene svekkes",
+      "Klimaendring er en reell trussel",
+      "Et akutt behov for oppfølging"
+    ]
+  },
+  "author": "Bjørnar Sætre",
+  "publishedAt": "2026-07-16T11:13:52.883Z",
+  "image": "/images/gen/gronn-grisk-miljoparolen-forsvinner-2n3.jpg",
+  "imageQuery": "leaf, environment, warning sign",
+  "imageAlt": "Illustrasjonsfoto (leaf,environment)",
+  "isPlus": true,
+  "featured": false,
+  "source": "llm"
+}
