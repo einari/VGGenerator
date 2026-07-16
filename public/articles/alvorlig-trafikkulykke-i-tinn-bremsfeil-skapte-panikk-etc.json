@@ -1,0 +1,30 @@
+{
+  "id": "alvorlig-trafikkulykke-i-tinn-bremsfeil-skapte-panikk-etc",
+  "section": "nyheter",
+  "kicker": "ULIKKE",
+  "title": "Alvorlig trafikkulykke i Tinn: – Bremsfeil skapte panikk",
+  "lead": "En alvorlig trafikkulykke har skapt stor bekymring i Tinn etter at et kjøretøy mistet kontrollen på veien.",
+  "body": [
+    "En ulykket bilulykke skjedde på en landsbyvei som førte til stor panikk blant trafikanter i området.",
+    "Mange ventet på informasjon om skadede etter at et kjøretøy hadde mistet kontrollen.",
+    "– Kjøretøyets feil på høy hastighet skapte en alvorlig fare for andre",
+    "– Sikkerhetsrutiner må revurderes på grunn av denne hendelsen"
+  ],
+  "factBox": {
+    "title": "Dette vet vi",
+    "items": [
+      "Ulykket på landsbyvei",
+      "Mistet kontroll på veien",
+      "Bekymring for kjørerisiko",
+      "Krever umiddelbar sikkerhetsvurdering"
+    ]
+  },
+  "author": "Kari Larsen",
+  "publishedAt": "2026-07-16T12:14:01.213Z",
+  "image": "/images/gen/alvorlig-trafikkulykke-i-tinn-bremsfeil-skapte-panikk-etc.jpg",
+  "imageQuery": "car, accident, rural, road",
+  "imageAlt": "Illustrasjonsfoto (car,accident)",
+  "isPlus": false,
+  "featured": false,
+  "source": "llm"
+}
