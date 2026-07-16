@@ -34,6 +34,19 @@ Overskriften skal stoppe deg. Regler og mønstre VG/Dagbladet bruker:
 7. **Cliffhanger:** aldri gi bort poenget. Skap et informasjonsgap.
 8. Ikke bruk punktum på slutten av overskriften. Bruk ikke SKRIKENDE VERSALER.
 
+**Variér overskriftene – VIKTIG:** Ikke la alle overskriftene følge samme mal.
+Den utslitte reaksjonen «– Det er helt sykt/vilt/galskap» er FORBUDT å bruke mer
+enn i høyden én overskrift per bunke – helst ingen. Unngå også å gjenta ordet
+«helt» i sitatet. La reaksjonssitatet være konkret og springe ut av nettopp den
+saken, eller dropp «kolon + sitat»-malen helt og bruk et av de andre mønstrene
+(Dette/Slik/Derfor, navn + verb, tall/liste, sammensatt -sjokk/-kaos-ord).
+
+Varierte reaksjonssitat i stedet for «Det er helt …»:
+`– Jeg trodde det var en spøk`, `– Aldri sett maken`, `– Nå må noen ta ansvar`,
+`– Dette hadde vi ikke sett komme`, `– Folk er rasende`, `– Jeg fikk hakeslepp`,
+`– Han ler hele veien til banken`, `– Vi tør ikke gå ut`. Eller finn på et nytt
+som passer saken.
+
 **Kicker/stikktittel:** en kort etikett over overskriften (2–4 ord) som setter tema/sted, f.eks. `TRAFIKK`, `AVSLØRING`, `SISTE`, `SPORT`, `KJENDIS`, `ADVARSEL`, `OSLO`.
 
 ## Ingress (sammendraget under overskriften)

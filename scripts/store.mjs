@@ -90,7 +90,8 @@ ${menu}
 ${slotBlock}
 Krav:
 - Bruk fiktive personnavn, alltid med alder i parentes ved første nevning: «Ola (52)» <- dette er bare et eksempel, ikke ta det bokstavelig.
-- Overskrift: kort, muntlig, ofte «kolon + – sitat». Ikke punktum til slutt.
+- Overskrift: kort, muntlig. «Kolon + – sitat» er ett mønster, men variér: bruk også «Dette/Slik/Derfor», «Navn (alder) + verb», tall/liste eller «-sjokk/-kaos»-ord. Ikke punktum til slutt.
+- IKKE bruk «Det er helt sykt/vilt/galskap» (eller «helt» i sitatet) i mer enn maks én overskrift i denne bunken – helst ingen. La overskriftene være tydelig ulike hverandre.
 - kicker: 1–3 ord, gjerne VERSALER (tema/sted).
 - lead (ingress): 1–2 setninger som lokker, holder igjen poenget.
 - body: 4–8 korte avsnitt. Legg minst to sitater; sitatavsnitt starter med «– » (tankestrek) og attribueres, f.eks. «– Helt vilt, sier Kari (33).»
@@ -121,12 +122,20 @@ export function parseArticlesResponse(text) {
   // Strip ```json ... ``` fences if present.
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i)
   if (fence) t = fence[1].trim()
-  // Otherwise grab the outermost object.
-  if (t[0] !== '{') {
-    const start = t.indexOf('{')
-    const end = t.lastIndexOf('}')
-    if (start !== -1 && end !== -1) t = t.slice(start, end + 1)
+  // Always extract the outermost object/array, so junk before OR after the JSON
+  // (small models often add a trailing sentence) does not break parsing.
+  const firstObj = t.indexOf('{')
+  const firstArr = t.indexOf('[')
+  let start = -1
+  let end = -1
+  if (firstArr !== -1 && (firstObj === -1 || firstArr < firstObj)) {
+    start = firstArr
+    end = t.lastIndexOf(']')
+  } else if (firstObj !== -1) {
+    start = firstObj
+    end = t.lastIndexOf('}')
   }
+  if (start !== -1 && end > start) t = t.slice(start, end + 1)
   const data = JSON.parse(t)
   const list = Array.isArray(data) ? data : data.articles
   if (!Array.isArray(list)) throw new Error('No "articles" array in response')
