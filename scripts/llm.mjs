@@ -11,7 +11,11 @@ import {
   rebuildIndex,
 } from './store.mjs'
 import { downloadArticleImage } from './images.mjs'
-import { dialectInstruction } from './dialects.mjs'
+import {
+  dialectInstruction,
+  dialectNeedsRepair,
+  dialectMarkerHits,
+} from './dialects.mjs'
 
 const baseUrl = () => process.env.LLM_BASE_URL || 'http://127.0.0.1:8000/v1'
 const apiKey = () => process.env.LLM_API_KEY || ''
@@ -153,6 +157,43 @@ async function repairKeywords(model, rawArticle, keywords, dialect = 'bokmal') {
   return parseObject(content)
 }
 
+/** Ask the model to rewrite one article into the given dialect. */
+async function repairDialect(model, rawArticle, dialect) {
+  const instruction = dialectInstruction(dialect)
+  if (!instruction) return null
+  const payload = {
+    section: rawArticle.section,
+    kicker: rawArticle.kicker,
+    title: rawArticle.title,
+    lead: rawArticle.lead,
+    body: rawArticle.body,
+    factBox: rawArticle.factBox,
+    imageQuery: rawArticle.imageQuery,
+    author: rawArticle.author,
+  }
+  const content = await chatCompletion(
+    model,
+    [
+      {
+        role: 'system',
+        content:
+          'Du er redaktør i ei norsk tabloidavis og skriv om saker til den dialekten eller målforma du får beskjed om.',
+      },
+      {
+        role: 'user',
+        content: `Her er ei nyheitssak som JSON:\n${JSON.stringify(payload)}\n\n${instruction}\n\nSkriv om ALLE tekstfelta (title, lead, body, factBox) til denne dialekten/målforma. Behald temaet, innhaldet og lengda. Returner KUN gyldig JSON med dei same felta.`,
+      },
+    ],
+    4096,
+  )
+  return parseObject(content)
+}
+
+/** Concatenated visible text of an article, for dialect checks. */
+function articleText(a) {
+  return [a.title, a.lead, ...(a.body || [])].join(' ')
+}
+
 /**
  * Generate `count` articles, write them to public/articles/, rebuild the
  * index, and return the freshly written article objects (newest first).
@@ -185,10 +226,31 @@ export async function generate({
   const now = Date.now()
   const written = []
   for (let i = 0; i < raw.length; i++) {
-    const r = raw[i]
+    let r = raw[i]
     const publishedAt = new Date(now - i * 1000).toISOString()
     let article = finalizeArticle(r, { publishedAt, index: i, source: 'llm' })
     if (!article.title || !article.body.length) continue
+
+    // Enforce the dialect: if too few markers landed, do one rewrite pass.
+    if (dialect !== 'bokmal' && dialectNeedsRepair(articleText(article), dialect)) {
+      try {
+        const dialectRaw = await repairDialect(model, r, dialect)
+        const fixed = finalizeArticle(dialectRaw, { publishedAt, index: i, source: 'llm' })
+        if (
+          fixed.title &&
+          fixed.body.length &&
+          dialectMarkerHits(articleText(fixed), dialect).hits >
+            dialectMarkerHits(articleText(article), dialect).hits
+        ) {
+          fixed.id = article.id
+          fixed.image = article.image
+          article = fixed
+          r = dialectRaw // keyword pass below should build on the dialect version
+        }
+      } catch {
+        /* keep best-effort original */
+      }
+    }
 
     // Enforce the slot's keywords: verify they made it in, else one rewrite pass.
     const keywords = effectiveSlots[i]?.keywords || []

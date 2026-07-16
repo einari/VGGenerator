@@ -89,7 +89,7 @@ Fordel sakene på disse seksjonene:
 ${menu}
 ${slotBlock}
 Krav:
-- Bruk fiktive personnavn, alltid med alder i parentes ved første nevning: «Ola (52)».
+- Bruk fiktive personnavn, alltid med alder i parentes ved første nevning: «Ola (52)» <- dette er bare et eksempel, ikke ta det bokstavelig.
 - Overskrift: kort, muntlig, ofte «kolon + – sitat». Ikke punktum til slutt.
 - kicker: 1–3 ord, gjerne VERSALER (tema/sted).
 - lead (ingress): 1–2 setninger som lokker, holder igjen poenget.
