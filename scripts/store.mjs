@@ -56,13 +56,22 @@ function normalizeSlot(slot) {
 }
 
 /** Build the user message that pins the exact JSON output schema. */
-export function buildUserPrompt(count, sectionIds, slots = [], dialect = 'bokmal') {
+export function buildUserPrompt(
+  count,
+  sectionIds,
+  slots = [],
+  dialect = 'bokmal',
+  spin = false,
+) {
   const chosen = SECTIONS.filter((s) => sectionIds.includes(s.id))
   const menu = chosen
     .map((s) => `- "${s.id}" (${s.label}): ${s.brief}`)
     .join('\n')
   const dialectText = dialectInstruction(dialect)
   const dialectBlock = dialectText ? `\nDIALEKT: ${dialectText}\n` : ''
+  const spinBlock = spin
+    ? '\nSPINN: Temaene under er ekte, aktuelle norske nyhetsoverskrifter. Lag en absurd, oppdiktet PARODI av hvert tema: behold det gjenkjennelige emnet, men gjør alt innhold, sitater, tall og detaljer fullstendig fiktivt og morsomt. Bruk FIKTIVE personnavn – ikke gjengi ekte, navngitte personer eller deres utsagn. Ikke gjenfortell den ekte saken.\n'
+    : ''
   const norm = slots.map(normalizeSlot)
   const hasContent = norm.some((s) => s.topic.trim() || s.keywords.length)
   const anyKeywords = norm.some((s) => s.keywords.length)
@@ -84,7 +93,7 @@ export function buildUserPrompt(count, sectionIds, slots = [], dialect = 'bokmal
       }\n`
     : ''
   return `Lag ${count} oppdiktede nyhetssaker i tabloid-stil (VG/Dagbladet). Innholdet skal være absurd, underholdende og fullstendig oppspinn – men helt ekte i formen.
-${dialectBlock}
+${dialectBlock}${spinBlock}
 Fordel sakene på disse seksjonene:
 ${menu}
 ${slotBlock}
@@ -116,14 +125,8 @@ Svar med KUN gyldig JSON (ingen markdown, ingen forklaring) på nøyaktig dette 
 factBox er valgfri (ta med på omtrent halvparten). Returner nøyaktig ${count} saker.`
 }
 
-/** Pull the JSON payload out of a raw model response, tolerating fences/prose. */
-export function parseArticlesResponse(text) {
-  let t = String(text).trim()
-  // Strip ```json ... ``` fences if present.
-  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fence) t = fence[1].trim()
-  // Always extract the outermost object/array, so junk before OR after the JSON
-  // (small models often add a trailing sentence) does not break parsing.
+/** Extract the outermost {...} / [...] region, dropping junk on either side. */
+function sliceOutermost(t) {
   const firstObj = t.indexOf('{')
   const firstArr = t.indexOf('[')
   let start = -1
@@ -135,11 +138,79 @@ export function parseArticlesResponse(text) {
     start = firstObj
     end = t.lastIndexOf('}')
   }
-  if (start !== -1 && end > start) t = t.slice(start, end + 1)
-  const data = JSON.parse(t)
-  const list = Array.isArray(data) ? data : data.articles
-  if (!Array.isArray(list)) throw new Error('No "articles" array in response')
-  return list
+  return start !== -1 && end > start ? t.slice(start, end + 1) : t
+}
+
+/**
+ * Pull each article object out of the array by scanning balanced braces (string-
+ * aware). Tolerates a missing comma between objects — the exact failure small
+ * models hit on longer outputs — because it never relies on the commas.
+ */
+function extractArticleObjects(text) {
+  const from = text.indexOf('[') + 1 || 0
+  const objs = []
+  let depth = 0
+  let start = -1
+  let inStr = false
+  let esc = false
+  for (let i = from; i < text.length; i++) {
+    const c = text[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (c === '\\') esc = true
+      else if (c === '"') inStr = false
+      continue
+    }
+    if (c === '"') inStr = true
+    else if (c === '{') {
+      if (depth === 0) start = i
+      depth++
+    } else if (c === '}') {
+      depth--
+      if (depth === 0 && start !== -1) {
+        objs.push(text.slice(start, i + 1))
+        start = -1
+      }
+      if (depth < 0) depth = 0
+    } else if (c === ']' && depth === 0) {
+      break // end of the articles array
+    }
+  }
+  return objs
+}
+
+/** Pull the JSON payload out of a raw model response, tolerating fences/prose. */
+export function parseArticlesResponse(text) {
+  let t = String(text).trim()
+  // Strip ```json ... ``` fences if present.
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fence) t = fence[1].trim()
+  t = sliceOutermost(t)
+
+  // Fast path: a clean, well-formed response.
+  try {
+    const data = JSON.parse(t)
+    const list = Array.isArray(data) ? data : data.articles
+    if (Array.isArray(list) && list.length) return list
+  } catch {
+    /* fall through to salvage */
+  }
+
+  // Salvage: parse each article object on its own, skipping any broken one.
+  const articles = []
+  for (const objText of extractArticleObjects(t)) {
+    const cleaned = objText.replace(/,(\s*[}\]])/g, '$1') // drop trailing commas
+    try {
+      const obj = JSON.parse(cleaned)
+      if (obj && typeof obj === 'object' && (obj.title || obj.body || obj.lead)) {
+        articles.push(obj)
+      }
+    } catch {
+      /* skip this one, keep the rest */
+    }
+  }
+  if (articles.length) return articles
+  throw new Error('Fant ingen gyldige saker i modell-svaret')
 }
 
 const VALID_SECTIONS = new Set(SECTIONS.map((s) => s.id))

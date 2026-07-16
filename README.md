@@ -73,6 +73,15 @@ yarn generate --count 8
 yarn generate --count 4 --topics "måke tar pølse; strømpris i taket"
 ```
 
+### Spinn dagens nyheter
+
+På forsiden ligg knappen **«🗞️ Spinn nyheter»**. Den hentar ekte overskrifter
+(kun overskriftene, som tema-frø) frå eit tilfeldig utval av VG, NRK, Dagbladet,
+Aftenposten og Se og Hør, fjernar duplikat-emne, og let modellen spinne kvart
+emne om til ein absurd, oppdikta parodi – med **fiktive** personar. Vel talet på
+saker (6 som standard). Backend gjer jobben ([scripts/news.mjs](scripts/news.mjs)),
+så ingen sidekode eller CORS.
+
 ## Les opp saker (text-to-speech)
 
 Hver artikkel har en høyttaler-knapp **«Hør saken»** rett under bylinen. Den leser

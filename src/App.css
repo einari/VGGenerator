@@ -482,6 +482,34 @@
 }
 
 /* ---------- Front page ---------- */
+.newsbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  flex-wrap: wrap;
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--red);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 22px;
+}
+.newsbar-title strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.newsbar-title span {
+  font-size: 13px;
+  color: var(--meta);
+}
+.newsspin {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .lead-row {
   display: grid;
   grid-template-columns: 1.9fr 1fr;

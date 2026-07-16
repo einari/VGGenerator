@@ -40,7 +40,7 @@ function App() {
         ) : route.name === 'section' ? (
           <SectionPage articles={articles} section={route.section} />
         ) : (
-          <FrontPage articles={articles} />
+          <FrontPage articles={articles} onGenerated={onGenerated} />
         )}
       </main>
 

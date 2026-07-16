@@ -12,6 +12,7 @@ import { generate, suggestTopics } from '../scripts/llm.mjs'
 import { SECTIONS, readArticle } from '../scripts/store.mjs'
 import { DIALECTS, isDialect } from '../scripts/dialects.mjs'
 import { ttsConfig, buildSegments, synthesize, wavHeader, probe } from '../scripts/tts.mjs'
+import { collectSubjects } from '../scripts/news.mjs'
 
 loadDotEnv()
 
@@ -143,6 +144,24 @@ const server = createServer(async (req, res) => {
       const articles = await generate({ count, slots, sections, dialect })
       console.log(`✓ genererte ${articles.length} saker (${dialect})`)
       return send(res, 200, { articles })
+    }
+
+    // Spin real Norwegian current-affairs headlines into original parody.
+    if (method === 'POST' && path === '/api/generate-news') {
+      const body = await readBody(req)
+      const count = clampCount(body.count)
+      const dialect = isDialect(body.dialect) ? body.dialect : 'bokmal'
+      const subjects = await collectSubjects(count)
+      if (!subjects.length) {
+        return send(res, 502, { error: 'Fikk ikke hentet nyheter fra kildene' })
+      }
+      const slots = subjects.map((s) => ({ topic: s.subject, keywords: [] }))
+      const articles = await generate({ count: slots.length, slots, dialect, spin: true })
+      console.log(`✓ spant ${articles.length} saker fra nyheter`)
+      return send(res, 200, {
+        articles,
+        sources: [...new Set(subjects.map((s) => s.source))],
+      })
     }
 
     return send(res, 404, { error: 'Not found' })

@@ -1,0 +1,30 @@
+{
+  "id": "prisjakket-pa-mat-vaer-oppmerksom-jhc",
+  "section": "forbruker",
+  "kicker": "MATVARE",
+  "title": "Prisjakket på mat – Vær oppmerksom",
+  "lead": "Forbrukerne advarer mot skjulte prisøkninger på dagligvarer",
+  "body": [
+    "Forbrukerorganisasjonen har varslet om en systematisk økning i prisene på basisvarer gjennom sesongen.",
+    "Dette gjelder flere essensielle matvarer, inkludert proteiner og friske grønnsaker.",
+    "– De skjuler virkelig mye i dagligvareprisene, sier en forbrukerøkonom",
+    "– Vi må være smartere med budsjettene våre",
+    "– Advarselen er viktig for alle kjøpere"
+  ],
+  "factBox": {
+    "title": "Dette vet vi",
+    "items": [
+      "Prisøkningene er sesongbaserte",
+      "Effekten på husholdningsbudsjettene er stor",
+      "Kjøpere bør vurdere alternativer"
+    ]
+  },
+  "author": "Per Hansen",
+  "publishedAt": "2026-07-16T12:09:15.104Z",
+  "image": "/images/gen/prisjakket-pa-mat-vaer-oppmerksom-jhc.jpg",
+  "imageQuery": "groceries, pricetag, warning",
+  "imageAlt": "Illustrasjonsfoto (groceries,pricetag)",
+  "isPlus": false,
+  "featured": true,
+  "source": "llm"
+}

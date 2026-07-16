@@ -65,3 +65,9 @@ export async function suggestTopics(count: number): Promise<string[]> {
   const data = await post<{ topics: string[] }>('/topics', { count })
   return data.topics
 }
+
+/** Spin real Norwegian current-affairs headlines into parody articles. */
+export async function generateFromNews(count: number): Promise<Article[]> {
+  const data = await post<{ articles: Article[] }>('/generate-news', { count })
+  return data.articles
+}

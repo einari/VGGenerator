@@ -204,6 +204,7 @@ export async function generate({
   slots,
   topics = [],
   dialect = 'bokmal',
+  spin = false,
 } = {}) {
   const sectionIds =
     Array.isArray(sections) && sections.length ? sections : SECTIONS.map((s) => s.id)
@@ -217,7 +218,10 @@ export async function generate({
     model,
     [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt(count, sectionIds, effectiveSlots, dialect) },
+      {
+        role: 'user',
+        content: buildUserPrompt(count, sectionIds, effectiveSlots, dialect, spin),
+      },
     ],
     4096,
   )
