@@ -50,8 +50,13 @@ export interface TopicSlot {
 export async function generateArticles(
   count: number,
   slots: TopicSlot[],
+  dialect: string,
 ): Promise<Article[]> {
-  const data = await post<{ articles: Article[] }>('/generate', { count, slots })
+  const data = await post<{ articles: Article[] }>('/generate', {
+    count,
+    slots,
+    dialect,
+  })
   return data.articles
 }
 

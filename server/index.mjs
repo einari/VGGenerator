@@ -10,6 +10,7 @@ import { createServer } from 'node:http'
 import { loadDotEnv } from '../scripts/env.mjs'
 import { generate, suggestTopics } from '../scripts/llm.mjs'
 import { SECTIONS } from '../scripts/store.mjs'
+import { DIALECTS, isDialect } from '../scripts/dialects.mjs'
 
 loadDotEnv()
 
@@ -67,6 +68,7 @@ const server = createServer(async (req, res) => {
         llm: process.env.LLM_BASE_URL || 'http://127.0.0.1:8000/v1',
         hasKey: Boolean(process.env.LLM_API_KEY),
         sections: SECTIONS.map((s) => ({ id: s.id, label: s.label })),
+        dialects: DIALECTS.map((d) => ({ id: d.id, label: d.label })),
       })
     }
 
@@ -95,8 +97,9 @@ const server = createServer(async (req, res) => {
       const sections = Array.isArray(body.sections)
         ? body.sections.map((s) => String(s))
         : undefined
-      const articles = await generate({ count, slots, sections })
-      console.log(`✓ genererte ${articles.length} saker`)
+      const dialect = isDialect(body.dialect) ? body.dialect : 'bokmal'
+      const articles = await generate({ count, slots, sections, dialect })
+      console.log(`✓ genererte ${articles.length} saker (${dialect})`)
       return send(res, 200, { articles })
     }
 

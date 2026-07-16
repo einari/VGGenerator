@@ -276,16 +276,42 @@
 .modal--gen {
   width: 480px;
 }
+.gen-fields {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 14px;
+}
 .count-field {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px !important;
+  margin-bottom: 0 !important;
+}
+.count-field:first-child {
+  flex: 0 0 auto;
+}
+.count-field:last-child {
+  flex: 1;
 }
 .count-field input {
   width: 84px;
   margin-top: 0;
+}
+.count-field select {
+  margin-top: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.count-field select:focus {
+  outline: 2px solid var(--focus);
+  border-color: var(--focus);
 }
 .topics {
   display: flex;

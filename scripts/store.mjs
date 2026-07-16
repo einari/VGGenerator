@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { dialectInstruction } from './dialects.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const ROOT = join(__dirname, '..')
@@ -55,11 +56,13 @@ function normalizeSlot(slot) {
 }
 
 /** Build the user message that pins the exact JSON output schema. */
-export function buildUserPrompt(count, sectionIds, slots = []) {
+export function buildUserPrompt(count, sectionIds, slots = [], dialect = 'bokmal') {
   const chosen = SECTIONS.filter((s) => sectionIds.includes(s.id))
   const menu = chosen
     .map((s) => `- "${s.id}" (${s.label}): ${s.brief}`)
     .join('\n')
+  const dialectText = dialectInstruction(dialect)
+  const dialectBlock = dialectText ? `\nDIALEKT: ${dialectText}\n` : ''
   const norm = slots.map(normalizeSlot)
   const hasContent = norm.some((s) => s.topic.trim() || s.keywords.length)
   const anyKeywords = norm.some((s) => s.keywords.length)
@@ -81,7 +84,7 @@ export function buildUserPrompt(count, sectionIds, slots = []) {
       }\n`
     : ''
   return `Lag ${count} oppdiktede nyhetssaker i tabloid-stil (VG/Dagbladet). Innholdet skal være absurd, underholdende og fullstendig oppspinn – men helt ekte i formen.
-
+${dialectBlock}
 Fordel sakene på disse seksjonene:
 ${menu}
 ${slotBlock}

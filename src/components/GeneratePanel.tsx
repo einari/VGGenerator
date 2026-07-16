@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Article } from '../lib/types'
 import { generateArticles, suggestTopics } from '../lib/api'
+import { DIALECTS, DEFAULT_DIALECT } from '../lib/dialects'
 import { TopicRow, type Slot } from './TopicRow'
 
 function resize(arr: Slot[], n: number): Slot[] {
@@ -22,6 +23,7 @@ export function GeneratePanel({
 }) {
   const [open, setOpen] = useState(false)
   const [count, setCount] = useState(DEFAULT_COUNT)
+  const [dialect, setDialect] = useState(DEFAULT_DIALECT)
   const [slots, setSlots] = useState<Slot[]>(() => resize([], DEFAULT_COUNT))
   const [busy, setBusy] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
@@ -67,6 +69,7 @@ export function GeneratePanel({
       const fresh = await generateArticles(
         count,
         slots.map((s) => ({ topic: s.topic.trim(), keywords: s.keywords })),
+        dialect,
       )
       onGenerated(fresh)
       setOpen(false)
@@ -114,17 +117,33 @@ export function GeneratePanel({
               til nøkkelord modellen må skrive saken rundt. Sakene lagres på disk.
             </p>
 
-            <label className="count-field">
-              Antall saker
-              <input
-                type="number"
-                min={1}
-                max={12}
-                value={count}
-                disabled={busy}
-                onChange={(e) => changeCount(Number(e.target.value))}
-              />
-            </label>
+            <div className="gen-fields">
+              <label className="count-field">
+                Antall saker
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={count}
+                  disabled={busy}
+                  onChange={(e) => changeCount(Number(e.target.value))}
+                />
+              </label>
+              <label className="count-field">
+                Dialekt
+                <select
+                  value={dialect}
+                  disabled={busy}
+                  onChange={(e) => setDialect(e.target.value)}
+                >
+                  {DIALECTS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             <div className="topics">
               {slots.map((s, i) => (

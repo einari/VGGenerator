@@ -25,10 +25,13 @@ const topics = (arg('topics', '') || '')
   .split(';')
   .map((t) => t.trim())
   .filter(Boolean)
+const dialect = arg('dialect', 'bokmal')
 
-console.log(`→ genererer ${count} saker${topics.length ? ` (temaer: ${topics.join(', ')})` : ''}`)
+console.log(
+  `→ genererer ${count} saker (${dialect})${topics.length ? ` (temaer: ${topics.join(', ')})` : ''}`,
+)
 
-generate({ count, sections: sections.length ? sections : undefined, topics })
+generate({ count, sections: sections.length ? sections : undefined, topics, dialect })
   .then((articles) => {
     for (const a of articles) console.log(`  ✓ [${a.section}] ${a.title}`)
     console.log(`\nSkrev ${articles.length} saker til public/articles/.`)

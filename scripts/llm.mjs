@@ -11,6 +11,7 @@ import {
   rebuildIndex,
 } from './store.mjs'
 import { downloadArticleImage } from './images.mjs'
+import { dialectInstruction } from './dialects.mjs'
 
 const baseUrl = () => process.env.LLM_BASE_URL || 'http://127.0.0.1:8000/v1'
 const apiKey = () => process.env.LLM_API_KEY || ''
@@ -117,7 +118,7 @@ function missingKeywords(article, keywords) {
 }
 
 /** Ask the model to rewrite one article so the given keywords appear verbatim. */
-async function repairKeywords(model, rawArticle, keywords) {
+async function repairKeywords(model, rawArticle, keywords, dialect = 'bokmal') {
   const payload = {
     section: rawArticle.section,
     kicker: rawArticle.kicker,
@@ -128,13 +129,15 @@ async function repairKeywords(model, rawArticle, keywords) {
     imageQuery: rawArticle.imageQuery,
     author: rawArticle.author,
   }
+  const dialectText = dialectInstruction(dialect)
+  const dialectNote = dialectText ? ` ${dialectText}` : ''
   const content = await chatCompletion(
     model,
     [
       {
         role: 'system',
         content:
-          'Du er redaktør i en norsk tabloid og skriver om saker på bokmål uten å endre stil eller lengde.',
+          'Du er redaktør i en norsk tabloid og skriver om saker uten å endre stil, dialekt eller lengde.',
       },
       {
         role: 'user',
@@ -142,7 +145,7 @@ async function repairKeywords(model, rawArticle, keywords) {
           .map((k) => `«${k}»`)
           .join(
             ', ',
-          )}. Behold samme tema, seksjon, stil, lengde og struktur. Returner KUN gyldig JSON med de samme feltene.`,
+          )}. Behold samme tema, seksjon, stil, lengde og struktur.${dialectNote} Returner KUN gyldig JSON med de samme feltene.`,
       },
     ],
     4096,
@@ -154,7 +157,13 @@ async function repairKeywords(model, rawArticle, keywords) {
  * Generate `count` articles, write them to public/articles/, rebuild the
  * index, and return the freshly written article objects (newest first).
  */
-export async function generate({ count = 6, sections, slots, topics = [] } = {}) {
+export async function generate({
+  count = 6,
+  sections,
+  slots,
+  topics = [],
+  dialect = 'bokmal',
+} = {}) {
   const sectionIds =
     Array.isArray(sections) && sections.length ? sections : SECTIONS.map((s) => s.id)
   // slots = [{topic, keywords[]}]; fall back to plain topic strings.
@@ -167,7 +176,7 @@ export async function generate({ count = 6, sections, slots, topics = [] } = {})
     model,
     [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt(count, sectionIds, effectiveSlots) },
+      { role: 'user', content: buildUserPrompt(count, sectionIds, effectiveSlots, dialect) },
     ],
     4096,
   )
@@ -185,7 +194,7 @@ export async function generate({ count = 6, sections, slots, topics = [] } = {})
     const keywords = effectiveSlots[i]?.keywords || []
     if (keywords.length && missingKeywords(article, keywords).length) {
       try {
-        const repairedRaw = await repairKeywords(model, r, keywords)
+        const repairedRaw = await repairKeywords(model, r, keywords, dialect)
         const fixed = finalizeArticle(repairedRaw, { publishedAt, index: i, source: 'llm' })
         // Keep the rewrite only if it covers more keywords; preserve identity.
         if (
