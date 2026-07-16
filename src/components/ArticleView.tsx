@@ -2,6 +2,7 @@ import type { Article } from '../lib/types'
 import { hrefFront, hrefSection, hrefArticle } from '../lib/router'
 import { fullDate, timeAgo } from '../lib/format'
 import { sectionLabel } from '../lib/sections'
+import { ListenButton } from './ListenButton'
 
 function Paragraph({ text }: { text: string }) {
   // Lines starting with an en-dash are spoken quotes — style them.
@@ -44,6 +45,8 @@ export function ArticleView({
         </span>
         {article.source === 'llm' && <span className="tag-ai">KI-generert</span>}
       </div>
+
+      <ListenButton articleId={article.id} />
 
       <figure className="article__figure">
         <img src={article.image} alt={article.imageAlt} />

@@ -73,6 +73,29 @@ yarn generate --count 8
 yarn generate --count 4 --topics "måke tar pølse; strømpris i taket"
 ```
 
+## Les opp saker (text-to-speech)
+
+Hver artikkel har en høyttaler-knapp **«Hør saken»** rett under bylinen. Den leser
+overskrift, ingress og hele brødteksten på norsk – med små pauser mellom – via
+[Piper](https://github.com/rhasspy/piper). Backend snakkar Wyoming-protokollen mot
+Piper-containeren og **strømmer** WAV-en videre til nettleseren.
+
+```bash
+docker compose up -d piper     # første gang lastes den norske stemma ned
+docker compose logs -f piper   # følg med
+docker compose down            # stopp
+```
+
+Stemma er `no_NO-talesyntese-medium` (den norske Piper-stemma). Vil du bytte,
+endrar du `--voice` i [docker-compose.yml](docker-compose.yml) **og** `TTS_VOICE`
+i `.env` slik at dei stemmer. Andre stemmer: <https://huggingface.co/rhasspy/piper-voices>
+(mappa `no/`). Slå av med `TTS_ENABLED=false`. Config (host/port/voice) ligg i
+`.env`, som med LLM-en.
+
+> Merk: backend må startast på nytt (`yarn dev`) etter at containeren er oppe,
+> og Piper si norske stemme-utvalet er avgrensa – «kvinnelig nyhetsoppleser»
+> avheng av kva stemmer som finst.
+
 ## Kommandoer
 
 | Kommando        | Hva                                                    |
@@ -80,6 +103,7 @@ yarn generate --count 4 --topics "måke tar pølse; strømpris i taket"
 | `yarn dev`      | Backend + Vite (med `/api`-proxy) samtidig             |
 | `yarn dev:web`  | Bare Vite                                              |
 | `yarn server`   | Bare backend                                           |
+| `docker compose up -d piper` | Start norsk TTS-stemme (Piper)            |
 | `yarn build`    | Typecheck + produksjonsbygg                            |
 | `yarn preview`  | Server produksjonsbygget                               |
 | `yarn seed`     | Skriv håndlagde eksempelsaker til `public/articles/`   |

@@ -206,6 +206,17 @@ export function readAllArticles() {
     .map((f) => JSON.parse(readFileSync(join(ARTICLES_DIR, f), 'utf8')))
 }
 
+/** Read a single article by id, or null if it does not exist. */
+export function readArticle(id) {
+  if (!id || !/^[a-z0-9-]+$/i.test(id)) return null
+  const file = join(ARTICLES_DIR, `${id}.json`)
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
 export function writeArticle(article) {
   ensureDirs()
   writeFileSync(

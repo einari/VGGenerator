@@ -9,8 +9,9 @@
 import { createServer } from 'node:http'
 import { loadDotEnv } from '../scripts/env.mjs'
 import { generate, suggestTopics } from '../scripts/llm.mjs'
-import { SECTIONS } from '../scripts/store.mjs'
+import { SECTIONS, readArticle } from '../scripts/store.mjs'
 import { DIALECTS, isDialect } from '../scripts/dialects.mjs'
+import { ttsConfig, buildSegments, synthesize, wavHeader, probe } from '../scripts/tts.mjs'
 
 loadDotEnv()
 
@@ -63,13 +64,54 @@ const server = createServer(async (req, res) => {
 
   try {
     if (method === 'GET' && path === '/api/health') {
+      const tts = ttsConfig()
       return send(res, 200, {
         ok: true,
         llm: process.env.LLM_BASE_URL || 'http://127.0.0.1:8000/v1',
         hasKey: Boolean(process.env.LLM_API_KEY),
         sections: SECTIONS.map((s) => ({ id: s.id, label: s.label })),
         dialects: DIALECTS.map((d) => ({ id: d.id, label: d.label })),
+        tts: {
+          enabled: tts.enabled,
+          voice: tts.voice,
+          reachable: tts.enabled ? await probe(tts) : false,
+        },
       })
+    }
+
+    // Stream an article read aloud (Norwegian) as a WAV, via Piper.
+    if (method === 'GET' && path === '/api/tts') {
+      const tts = ttsConfig()
+      if (!tts.enabled) return send(res, 503, { error: 'TTS er avslått' })
+      const article = readArticle(url.searchParams.get('id'))
+      if (!article) return send(res, 404, { error: 'Fant ikke saken' })
+      const segments = buildSegments(article)
+      if (!segments.length) return send(res, 400, { error: 'Ingen tekst å lese' })
+
+      let started = false
+      try {
+        await synthesize(segments, tts, {
+          onFormat: (format) => {
+            started = true
+            res.writeHead(200, {
+              'Content-Type': 'audio/wav',
+              'Cache-Control': 'no-store',
+              'Transfer-Encoding': 'chunked',
+              ...CORS,
+            })
+            res.write(wavHeader(format))
+          },
+          onAudio: (pcm) => {
+            if (started) res.write(pcm)
+          },
+        })
+        return res.end()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('✖ TTS:', msg)
+        if (!started) return send(res, 502, { error: `TTS feilet: ${msg}` })
+        return res.end() // headers already sent — just close the stream
+      }
     }
 
     if (method === 'POST' && path === '/api/topics') {
