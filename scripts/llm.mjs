@@ -62,18 +62,37 @@ function parseStringArray(text) {
   let t = String(text).trim()
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i)
   if (fence) t = fence[1].trim()
-  const a = t.indexOf('[')
-  const b = t.lastIndexOf(']')
-  let data
-  if (a !== -1 && b !== -1 && (t[0] === '[' || t.indexOf('{') === -1)) {
-    data = JSON.parse(t.slice(a, b + 1))
-  } else {
-    const o = t.indexOf('{')
-    const c = t.lastIndexOf('}')
-    data = JSON.parse(o !== -1 ? t.slice(o, c + 1) : t)
+
+  try {
+    const a = t.indexOf('[')
+    const b = t.lastIndexOf(']')
+    let data
+    if (a !== -1 && b !== -1 && b > a && (t[0] === '[' || t.indexOf('{') === -1)) {
+      data = JSON.parse(t.slice(a, b + 1))
+    } else {
+      const o = t.indexOf('{')
+      const c = t.lastIndexOf('}')
+      if (o === -1 || c === -1 || c <= o) throw new Error('no matching braces')
+      data = JSON.parse(t.slice(o, c + 1))
+    }
+    const arr = Array.isArray(data) ? data : (data?.temaer ?? data?.topics ?? [])
+    if (Array.isArray(arr)) return arr.map((x) => String(x).trim()).filter(Boolean)
+  } catch {
+    /* fall through to salvage below */
   }
-  const arr = Array.isArray(data) ? data : (data?.temaer ?? data?.topics ?? [])
-  return (Array.isArray(arr) ? arr : []).map((x) => String(x).trim()).filter(Boolean)
+
+  // The model's response was truncated (hit max_tokens before closing the
+  // JSON) or otherwise malformed — pull out whatever complete, quoted string
+  // literals exist rather than crashing on a native JSON.parse error whose
+  // message ("Unexpected end of JSON input") gives no hint of the real cause.
+  // Anchored after the array's opening `[` so a wrapping key like
+  // `{"temaer": [...]}` doesn't itself get salvaged as a topic.
+  const arrayStart = t.indexOf('[')
+  const salvaged = [...t.slice(arrayStart + 1).matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+    .map((m) => m[1].trim())
+    .filter(Boolean)
+  if (salvaged.length) return salvaged
+  throw new Error('Fikk ikke gyldige temaer fra modellen (svaret var tomt eller ufullstendig)')
 }
 
 /** Ask the LLM for `count` short, absurd tabloid topics. */
@@ -92,7 +111,12 @@ export async function suggestTopics(count = 6) {
         content: `Foreslå nøyaktig ${count} korte nyhetstemaer (3–8 ord hver) for oppdiktede, morsomme tabloidsaker på norsk bokmål. Bland ulike seksjoner (nyheter, sport, kjendis, forbruker, meninger). Svar KUN som JSON på formen {"temaer": ["...", "..."]}. Ingen forklaring.`,
       },
     ],
-    1024,
+    // Some local models (e.g. Llama-3.2-3B-Instruct) are chattier than the
+    // one this was originally tuned against and can otherwise hit the token
+    // limit before ever closing the JSON — extra headroom here reduces how
+    // often that truncation happens (parseStringArray now salvages a
+    // truncated response too, but avoiding it in the first place is better).
+    1536,
   )
   return parseStringArray(content).slice(0, count)
 }
