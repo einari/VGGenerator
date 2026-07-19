@@ -13,7 +13,7 @@ import { createMainWindow } from './windows.mjs'
 import { requireAppleSilicon } from './platform.mjs'
 import { seedDataDir, distDir } from './paths.mjs'
 
-const { app, BrowserWindow, dialog } = electron
+const { app, BrowserWindow, dialog, ipcMain } = electron
 
 const BACKEND_PORT = Number(process.env.PORT || 8787)
 const LLAMA_PORT = Number(process.env.VGGEN_LLAMA_PORT || 8090)
@@ -46,10 +46,10 @@ if (!gotLock) {
   })
 }
 
-async function showProgressWindow() {
+async function showProgressWindow({ height = 240 } = {}) {
   const win = new BrowserWindow({
     width: 480,
-    height: 240,
+    height,
     resizable: false,
     minimizable: false,
     maximizable: false,
@@ -66,6 +66,34 @@ async function showProgressWindow() {
   win.once('ready-to-show', () => win.show())
   await win.loadFile(join(app.getAppPath(), 'electron', 'progress', 'index.html'))
   return win
+}
+
+/**
+ * First run only: swap the progress window to its model-chooser view and
+ * resolve with the chosen model. Resolves null if the user closes the window
+ * instead of choosing (treated as "quit the app").
+ */
+function askUserToChooseModel(win, { MODELS, DEFAULT_MODEL_ID, getModel }) {
+  return new Promise((resolve) => {
+    const onChosen = (_event, id) => {
+      cleanup()
+      resolve(getModel(id) ?? getModel(DEFAULT_MODEL_ID))
+    }
+    const onClosed = () => {
+      cleanup()
+      resolve(null)
+    }
+    function cleanup() {
+      ipcMain.off('model-chosen', onChosen)
+      win.off('closed', onClosed)
+    }
+    ipcMain.once('model-chosen', onChosen)
+    win.once('closed', onClosed)
+    win.webContents.send('choose-model', {
+      models: MODELS.map((m) => ({ id: m.id, label: m.label, sizeLabel: m.sizeLabel })),
+      defaultId: DEFAULT_MODEL_ID,
+    })
+  })
 }
 
 async function main(onMainWindow) {
@@ -87,38 +115,69 @@ async function main(onMainWindow) {
   const { ensureSeeded } = await import('./seedData.mjs')
   ensureSeeded(dataRoot, seedDataDir())
 
-  // 5. Ensure the model is downloaded, showing progress only if needed. The
-  // progress window stays open (with an updated status) through step 6/8
+  // 5. Pick the model: the saved choice, or (true first run — nothing saved,
+  // nothing downloaded) a chooser in the progress window before any download
+  // starts. Gemma is the preselected default.
+  const modelManager = await import('./modelManager.mjs')
+  const { ensureModel, isModelComplete, resolveInitialModel } = modelManager
+  const { readSettings, writeSettings } = await import('./settings.mjs')
+  const userDataDir = app.getPath('userData')
+  const modelsDir = join(userDataDir, 'models')
+
+  const settings = readSettings(userDataDir)
+  let progressWin = null
+  let model = resolveInitialModel(settings.modelId, modelsDir)
+  if (!model) {
+    progressWin = await showProgressWindow({ height: 360 })
+    model = await askUserToChooseModel(progressWin, modelManager)
+    if (!model) {
+      // Chooser window closed without picking — the user changed their mind.
+      app.quit()
+      return
+    }
+  }
+  if (settings.modelId !== model.id) {
+    writeSettings(userDataDir, { ...settings, modelId: model.id })
+  }
+
+  // 6. Ensure the model is downloaded, showing progress only if needed. The
+  // progress window stays open (with an updated status) through step 7/9
   // below too — closing it right after the download, before the LLM/backend
   // are actually up, left a gap of several seconds to a minute or more with
   // *no window visible at all*, which looked exactly like the app failing to
   // start.
-  const { ensureModel, isModelComplete } = await import('./modelManager.mjs')
-  const modelsDir = join(app.getPath('userData'), 'models')
-  let progressWin = null
-  if (!isModelComplete(modelsDir)) {
+  if (!isModelComplete(modelsDir, model) && !progressWin) {
     progressWin = await showProgressWindow()
   }
-  const resolvedModelPath = await ensureModel(modelsDir, (progress) => {
+  const resolvedModelPath = await ensureModel(modelsDir, model, (progress) => {
     progressWin?.webContents.send('model-download-progress', progress)
   })
   progressWin?.webContents.send('status', 'Starter modellen …')
 
-  // 6. Spawn the bundled LLM.
+  // 7. Spawn the bundled LLM.
   const { startLlamaServer, stopLlamaServer } = await import('./llama.mjs')
   await startLlamaServer({ modelPath: resolvedModelPath, port: LLAMA_PORT })
   app.on('will-quit', () => stopLlamaServer())
 
-  // 7. Point the backend at it. No LLM_API_KEY/LLM_MODEL — llama-server needs
+  // 8. Point the backend at it. No LLM_API_KEY/LLM_MODEL — llama-server needs
   // neither (scripts/llm.mjs already handles both being unset).
   process.env.LLM_BASE_URL = `http://127.0.0.1:${LLAMA_PORT}/v1`
 
-  // 8. Start the backend in-process, serving the built frontend + data root.
+  // 9. Start the backend in-process, serving the built frontend + data root.
+  // The model controller backs GET/POST /api/model, letting the frontend's
+  // topbar selector switch models at runtime (download → swap → restart).
   progressWin?.webContents.send('status', 'Starter appen …')
+  const { createModelController } = await import('./modelController.mjs')
+  const modelController = createModelController({
+    userDataDir,
+    modelsDir,
+    port: LLAMA_PORT,
+    currentModel: model,
+  })
   const { startServer } = await import('../server/index.mjs')
-  await startServer({ port: BACKEND_PORT, staticRoot: distDir(), dataRoot })
+  await startServer({ port: BACKEND_PORT, staticRoot: distDir(), dataRoot, modelController })
 
-  // 9. Open the main window hidden, and only swap it in for the progress
+  // 10. Open the main window hidden, and only swap it in for the progress
   // window once it has actually finished loading — so there is never a
   // moment with zero windows visible between the two.
   const win = createMainWindow({ show: false })
@@ -127,6 +186,6 @@ async function main(onMainWindow) {
   win.show()
   onMainWindow(win)
 
-  // 10. Single-purpose utility app: closing the window quits the app.
+  // 11. Single-purpose utility app: closing the window quits the app.
   app.on('window-all-closed', () => app.quit())
 }

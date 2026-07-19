@@ -41,6 +41,36 @@ export async function health(): Promise<HealthInfo | null> {
   }
 }
 
+export interface ModelStatus {
+  supported: boolean
+  current?: string
+  status?: 'ready' | 'downloading' | 'starting' | 'error'
+  target?: string | null
+  progress?: { receivedBytes: number; totalBytes: number } | null
+  error?: string | null
+  models: { id: string; label: string; sizeLabel: string; downloaded: boolean }[]
+}
+
+/**
+ * Model-selection state. `supported` is false outside the packaged app
+ * (yarn dev talks to an external LLM the backend can't swap); null means the
+ * backend itself is unreachable. The selector hides in both cases.
+ */
+export async function modelStatus(): Promise<ModelStatus | null> {
+  try {
+    const res = await fetch(`${API}/model`)
+    if (!res.ok) return null
+    return (await res.json()) as ModelStatus
+  } catch {
+    return null
+  }
+}
+
+/** Ask the app to switch model — it downloads the model first if missing. */
+export async function selectModel(id: string): Promise<ModelStatus> {
+  return post<ModelStatus>('/model', { id })
+}
+
 export interface TopicSlot {
   topic: string
   keywords: string[]

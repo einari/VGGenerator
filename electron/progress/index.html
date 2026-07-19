@@ -19,6 +19,12 @@
   h1 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
   p { font-size: 12px; color: #999; margin: 0 0 22px; text-align: center; max-width: 340px; }
 
+  .view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
   .spinner {
     width: 28px;
     height: 28px;
@@ -44,14 +50,61 @@
     transition: width 0.2s ease;
   }
   .pct { margin-top: 10px; font-size: 12px; color: #ccc; min-height: 16px; }
+
+  /* ---- First-run model chooser ---- */
+  #view-choose { display: none; }
+  #choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 340px;
+    margin-bottom: 16px;
+  }
+  .choice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .choice:has(input:checked) {
+    border-color: #e3001b;
+    background: #1f2126;
+  }
+  .choice input { accent-color: #e3001b; margin: 0; }
+  .choice .size { margin-left: auto; color: #999; font-size: 12px; }
+  #choose-start {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: #e3001b;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 22px;
+    cursor: pointer;
+  }
+  #choose-start:hover { background: #c40017; }
 </style>
 </head>
 <body>
-  <h1 id="title">Laster ned den lokale modellen …</h1>
-  <p id="subtitle">Skjer bare første gang. Appen starter automatisk når den er ferdig.</p>
-  <div class="spinner" id="spinner"></div>
-  <div class="bar" id="bar"><div id="fill"></div></div>
-  <div class="pct" id="pct"></div>
+  <div class="view" id="view-choose">
+    <h1>Velg språkmodell</h1>
+    <p>Modellen lastes ned én gang og kjører helt lokalt. Du kan bytte modell senere øverst i appen.</p>
+    <div id="choices"></div>
+    <button id="choose-start">Last ned og start</button>
+  </div>
+
+  <div class="view" id="view-progress">
+    <h1 id="title">Laster ned den lokale modellen …</h1>
+    <p id="subtitle">Skjer bare første gang. Appen starter automatisk når den er ferdig.</p>
+    <div class="spinner" id="spinner"></div>
+    <div class="bar" id="bar"><div id="fill"></div></div>
+    <div class="pct" id="pct"></div>
+  </div>
   <script>
     let switchedToBar = false
     window.vggen.onProgress(({ receivedBytes, totalBytes }) => {
@@ -81,6 +134,37 @@
       document.getElementById('bar').style.display = 'none'
       document.getElementById('pct').textContent = ''
       document.getElementById('spinner').style.display = 'block'
+    })
+    // True first run: main sends the model list before any download starts;
+    // the page swaps to the chooser and answers with the user's pick.
+    window.vggen.onChooseModel(({ models, defaultId }) => {
+      document.getElementById('view-progress').style.display = 'none'
+      const choices = document.getElementById('choices')
+      choices.innerHTML = ''
+      for (const m of models) {
+        const label = document.createElement('label')
+        label.className = 'choice'
+        const input = document.createElement('input')
+        input.type = 'radio'
+        input.name = 'model'
+        input.value = m.id
+        input.checked = m.id === defaultId
+        const name = document.createElement('span')
+        name.textContent = m.label
+        const size = document.createElement('span')
+        size.className = 'size'
+        size.textContent = m.sizeLabel
+        label.append(input, name, size)
+        choices.append(label)
+      }
+      document.getElementById('view-choose').style.display = 'flex'
+      document.getElementById('choose-start').onclick = () => {
+        const picked = choices.querySelector('input:checked')
+        if (!picked) return
+        document.getElementById('view-choose').style.display = 'none'
+        document.getElementById('view-progress').style.display = 'flex'
+        window.vggen.chooseModel(picked.value)
+      }
     })
   </script>
 </body>

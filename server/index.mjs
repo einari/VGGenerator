@@ -61,12 +61,13 @@ function clampCount(n) {
 }
 
 /**
- * Build the request listener. `staticRoot`/`dataRoot` are only passed by the
- * packaged Electron app (see electron/main.mjs) — left unset, this serves
- * only /api/* exactly as it always has, so `yarn server`/`yarn dev` are
- * unaffected.
+ * Build the request listener. `staticRoot`/`dataRoot`/`modelController` are
+ * only passed by the packaged Electron app (see electron/main.mjs) — left
+ * unset, this serves only /api/* exactly as it always has, so
+ * `yarn server`/`yarn dev` are unaffected (and /api/model reports
+ * `supported: false`, hiding the model selector in the UI).
  */
-export function createRequestListener({ staticRoot, dataRoot } = {}) {
+export function createRequestListener({ staticRoot, dataRoot, modelController } = {}) {
   const serveStatic = staticRoot
     ? createStaticHandler({ distRoot: staticRoot, dataRoot: dataRoot ?? staticRoot })
     : null
@@ -115,6 +116,25 @@ export function createRequestListener({ staticRoot, dataRoot } = {}) {
           const msg = err instanceof Error ? err.message : String(err)
           console.error('✖ TTS:', msg)
           return send(res, 502, { error: `TTS feilet: ${msg}` })
+        }
+      }
+
+      // Model selection — only live in the Electron app, where the main
+      // process manages the bundled llama-server (electron/modelController.mjs).
+      if (method === 'GET' && path === '/api/model') {
+        if (!modelController) return send(res, 200, { supported: false, models: [] })
+        return send(res, 200, modelController.getStatus())
+      }
+
+      if (method === 'POST' && path === '/api/model') {
+        if (!modelController) {
+          return send(res, 501, { error: 'Modellbytte støttes bare i appen' })
+        }
+        const body = await readBody(req)
+        try {
+          return send(res, 200, modelController.select(String(body.id || '')))
+        } catch (err) {
+          return send(res, 400, { error: err instanceof Error ? err.message : String(err) })
         }
       }
 
@@ -185,11 +205,12 @@ export function createRequestListener({ staticRoot, dataRoot } = {}) {
  * bind failure, e.g. EADDRINUSE from a leftover process on the same port —
  * without this, a failed .listen() call became an unhandled 'error' event
  * that silently crashed the process instead of surfacing a clear reason).
- * `staticRoot`/`dataRoot` are only passed by the packaged Electron app (see
- * electron/main.mjs); omitted, this behaves exactly as today (`/api/*` only).
+ * `staticRoot`/`dataRoot`/`modelController` are only passed by the packaged
+ * Electron app (see electron/main.mjs); omitted, this behaves exactly as
+ * today (`/api/*` only).
  */
-export function startServer({ port = DEFAULT_PORT, staticRoot, dataRoot } = {}) {
-  const server = createServer(createRequestListener({ staticRoot, dataRoot }))
+export function startServer({ port = DEFAULT_PORT, staticRoot, dataRoot, modelController } = {}) {
+  const server = createServer(createRequestListener({ staticRoot, dataRoot, modelController }))
   return new Promise((resolve, reject) => {
     server.once('error', reject)
     server.listen(port, () => {

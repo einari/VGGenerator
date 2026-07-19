@@ -55,6 +55,51 @@
 
 .topbar-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Model picker (packaged app only — hidden in dev, see ModelSelector.tsx) */
+.model-selector {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+.model-selector__label {
+  color: var(--meta);
+  font-weight: 600;
+}
+.model-selector select {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.model-selector select:focus {
+  outline: 2px solid var(--focus);
+  border-color: var(--focus);
+}
+.model-selector select:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.model-selector__status {
+  color: var(--meta);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.model-selector__error {
+  color: var(--red);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: help;
 }
 
 /* ---------- Nav ---------- */
@@ -848,6 +893,9 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 780px) {
   .topbar-date {
+    display: none;
+  }
+  .model-selector__label {
     display: none;
   }
   .lead-row {

@@ -82,12 +82,19 @@ export async function startLlamaServer({ modelPath, port }) {
   return child
 }
 
-/** Terminate the spawned llama-server, escalating to SIGKILL if it lingers. */
+/**
+ * Terminate the spawned llama-server, escalating to SIGKILL if it lingers.
+ * Resolves once the process has actually exited — model switching relies on
+ * this to know the port is free before starting the replacement server.
+ */
 export function stopLlamaServer({ graceMs = 3000 } = {}) {
-  if (!child) return
+  if (!child) return Promise.resolve()
   const proc = child
-  proc.kill('SIGTERM')
-  setTimeout(() => {
-    if (!exited) proc.kill('SIGKILL')
-  }, graceMs)
+  return new Promise((resolve) => {
+    proc.once('exit', () => resolve())
+    proc.kill('SIGTERM')
+    setTimeout(() => {
+      if (!exited) proc.kill('SIGKILL')
+    }, graceMs)
+  })
 }

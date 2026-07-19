@@ -3,6 +3,7 @@ import type { Route } from '../lib/router'
 import { hrefFront, hrefSection } from '../lib/router'
 import { SECTIONS } from '../lib/sections'
 import { GeneratePanel } from './GeneratePanel'
+import { ModelSelector } from './ModelSelector'
 
 const today = new Date().toLocaleDateString('nb-NO', {
   weekday: 'long',
@@ -30,6 +31,7 @@ export function Header({
         <span className="topbar-date">{today}</span>
 
         <div className="topbar-actions">
+          <ModelSelector />
           <GeneratePanel onGenerated={onGenerated} />
         </div>
       </div>

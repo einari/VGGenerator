@@ -112,10 +112,20 @@ stemmer installert på maskinen. Slå av med `TTS_ENABLED=false`.
 ## macOS-app (Electron)
 
 VG Generator kan pakkes som en frittstående, dobbeltklikkbar macOS-app –
-ingen oMLX, ingen Docker, ingen `.env`. Den lokale LLM-en (Llama-3.2-3B-Instruct,
-Q4_K_M-kvantisert) kjører inni appen via en bundlet `llama-server`-binær
+ingen oMLX, ingen Docker, ingen `.env`. Den lokale LLM-en kjører inni appen
+via en bundlet `llama-server`-binær
 ([llama.cpp](https://github.com/ggml-org/llama.cpp)), lastet ned første gang
-appen starter.
+appen starter. Du kan velge mellom to modeller (Q4_K_M-kvantiserte GGUF-er):
+
+- **Gemma 4 E2B** (default, ~3,1 GB) – samme modell som appen opprinnelig
+  brukte via oMLX,
+- **Llama 3.2 3B** (~2 GB).
+
+Første gang appen starter velger du modell før nedlastingen begynner. Etterpå
+kan du bytte når som helst med velgeren øverst i appen – mangler modellen,
+lastes den ned i bakgrunnen (den gamle fortsetter å svare imens) før appen
+bytter over. Valget huskes i `settings.json` under
+`~/Library/Application Support/VG Generator/`.
 
 ```bash
 yarn vendor:llama    # hent llama-server-binæren én gang (gitignored, .vendor/)
@@ -128,7 +138,7 @@ yarn electron:build  # bygg den ferdige .zip (pakk ut, dra .app til Programmer)
   eksisterende utviklerflyten, ikke en erstatning for den.
 - **Apple Silicon-only**: den bundlete `llama-server`-binæren er arm64/Metal.
   Appen sjekker dette og gir en tydelig feilmelding på Intel-Mac-er.
-- **Første gang**: appen laster ned modellen (~2 GB) til
+- **Første gang**: appen laster ned den valgte modellen (2–3 GB) til
   `~/Library/Application Support/VG Generator/models/` med en fremdriftsskjerm.
   Genererte saker/bilder havner i samme mappes `data/`-undermappe – appens
   `.app`-pakke selv er skrivebeskyttet.
@@ -144,14 +154,18 @@ yarn electron:build  # bygg den ferdige .zip (pakk ut, dra .app til Programmer)
   build-tids-signatur ble laget, som gjør den signaturen ugyldig for det
   ferdige innholdet.
 
-> **Modellvalg – lisens-fallgruve:** default-modellen er
-> Llama-3.2-3B-Instruct-Q4_K_M ([bartowski/Llama-3.2-3B-Instruct-GGUF](https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF)),
+> **Modellvalg – lisens-fallgruve:** modellene er Gemma 4 E2B
+> ([unsloth/gemma-4-E2B-it-GGUF](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF),
+> Googles Gemma Terms of Use – tillater redistribusjon, og speilet er åpent,
+> i motsetning til Googles egne GGUF-repoer som krever innlogget
+> lisensaksept) og Llama-3.2-3B-Instruct-Q4_K_M
+> ([bartowski/Llama-3.2-3B-Instruct-GGUF](https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF)),
 > under Metas Llama 3.2 Community License (tillater redistribusjon). **Ikke**
-> bytt denne til Qwen2.5-3B-Instruct som en "drop-in"-oppgradering – i
+> bytt til Qwen2.5-3B-Instruct som en "drop-in"-oppgradering – i
 > motsetning til de andre Qwen2.5-størrelsene (1.5B/7B/14B/32B, alle
 > Apache-2.0) er 3B-varianten lisensiert under Alibabas "qwen-research"-lisens
 > (forskning/ikke-kommersielt, ikke redistribuerbar). Sjekk alltid lisensen på
-> nytt før default-modellen endres.
+> nytt før modell-listen endres.
 
 ## Prosjektstruktur
 
@@ -175,7 +189,9 @@ electron/
   main.mjs            # produksjons-entry: bundlet LLM + in-process backend
   main.dev.mjs         # dev-entry: vindu mot :5173
   llama.mjs            # spawn/overvåk llama-server
-  modelManager.mjs      # last ned GGUF-modellen med fremdrift
+  modelManager.mjs      # modellkatalog (Gemma/Llama) + nedlasting med fremdrift
+  modelController.mjs   # modellbytte i drift (last ned → stopp → start)
+  settings.mjs          # husker modellvalget (settings.json)
 public/
   articles/           # index.json + én JSON-fil per sak
   images/             # tilfeldige bilder (picsum, loremflickr, vg.no)
