@@ -85,39 +85,66 @@ så ingen sidekode eller CORS.
 ## Les opp saker (text-to-speech)
 
 Hver artikkel har en høyttaler-knapp **«Hør saken»** rett under bylinen. Den leser
-overskrift, ingress og hele brødteksten på norsk – med små pauser mellom – via
-[Piper](https://github.com/rhasspy/piper). Backend snakkar Wyoming-protokollen mot
-Piper-containeren og **strømmer** WAV-en videre til nettleseren.
+overskrift, ingress og hele brødteksten på norsk via macOS sin innebygde
+`say`-kommando – ingen oppsett, ingen Docker. Standardstemme er `Nora`
+(`nb_NO`). Bytt stemme med `TTS_VOICE` i `.env` – `say -v '?'` lister alle
+stemmer installert på maskinen. Slå av med `TTS_ENABLED=false`.
 
-```bash
-docker compose up -d piper     # første gang lastes den norske stemma ned
-docker compose logs -f piper   # følg med
-docker compose down            # stopp
-```
-
-Stemma er `no_NO-talesyntese-medium` (den norske Piper-stemma). Vil du bytte,
-endrar du `--voice` i [docker-compose.yml](docker-compose.yml) **og** `TTS_VOICE`
-i `.env` slik at dei stemmer. Andre stemmer: <https://huggingface.co/rhasspy/piper-voices>
-(mappa `no/`). Slå av med `TTS_ENABLED=false`. Config (host/port/voice) ligg i
-`.env`, som med LLM-en.
-
-> Merk: backend må startast på nytt (`yarn dev`) etter at containeren er oppe,
-> og Piper si norske stemme-utvalet er avgrensa – «kvinnelig nyhetsoppleser»
-> avheng av kva stemmer som finst.
+> Merk: dette er macOS-only (`say` finnes ikke på andre plattformer), men det
+> er appen i sin helhet også.
 
 ## Kommandoer
 
-| Kommando        | Hva                                                    |
-| --------------- | ------------------------------------------------------ |
-| `yarn dev`      | Backend + Vite (med `/api`-proxy) samtidig             |
-| `yarn dev:web`  | Bare Vite                                              |
-| `yarn server`   | Bare backend                                           |
-| `docker compose up -d piper` | Start norsk TTS-stemme (Piper)            |
-| `yarn build`    | Typecheck + produksjonsbygg                            |
-| `yarn preview`  | Server produksjonsbygget                               |
-| `yarn seed`     | Skriv håndlagde eksempelsaker til `public/articles/`   |
-| `yarn generate` | Generer saker med lokal LLM → JSON-filer               |
-| `yarn lint`     | Oxlint                                                 |
+| Kommando               | Hva                                                              |
+| ---------------------- | ----------------------------------------------------------------- |
+| `yarn dev`             | Backend + Vite (med `/api`-proxy) samtidig                       |
+| `yarn dev:web`         | Bare Vite                                                        |
+| `yarn server`          | Bare backend                                                     |
+| `yarn build`           | Typecheck + produksjonsbygg                                      |
+| `yarn preview`         | Server produksjonsbygget                                         |
+| `yarn seed`            | Skriv håndlagde eksempelsaker til `public/articles/`             |
+| `yarn generate`        | Generer saker med lokal LLM → JSON-filer                         |
+| `yarn lint`            | Oxlint                                                           |
+| `yarn electron:dev`    | Åpne et Electron-vindu mot en allerede kjørende `yarn dev`       |
+| `yarn electron:start`  | Kjør hele den pakkede appflyten (bundlet LLM) uten full pakking  |
+| `yarn electron:build`  | Bygg den ferdige macOS-appen (zip)                               |
+
+## macOS-app (Electron)
+
+VG Generator kan pakkes som en frittstående, dobbeltklikkbar macOS-app –
+ingen oMLX, ingen Docker, ingen `.env`. Den lokale LLM-en (Llama-3.2-3B-Instruct,
+Q4_K_M-kvantisert) kjører inni appen via en bundlet `llama-server`-binær
+([llama.cpp](https://github.com/ggml-org/llama.cpp)), lastet ned første gang
+appen starter.
+
+```bash
+yarn vendor:llama    # hent llama-server-binæren én gang (gitignored, .vendor/)
+yarn electron:dev    # åpne et Electron-vindu mot en allerede kjørende `yarn dev`
+yarn electron:start  # kjør hele appflyten (bundlet LLM + modell-nedlasting) uten full pakking
+yarn electron:build  # bygg den ferdige .zip (pakk ut, dra .app til Programmer)
+```
+
+- **`yarn dev` er upåvirket** – Electron er kun et pakkingslag oppå den
+  eksisterende utviklerflyten, ikke en erstatning for den.
+- **Apple Silicon-only**: den bundlete `llama-server`-binæren er arm64/Metal.
+  Appen sjekker dette og gir en tydelig feilmelding på Intel-Mac-er.
+- **Første gang**: appen laster ned modellen (~2 GB) til
+  `~/Library/Application Support/VG Generator/models/` med en fremdriftsskjerm.
+  Genererte saker/bilder havner i samme mappes `data/`-undermappe – appens
+  `.app`-pakke selv er skrivebeskyttet.
+- **Usignert**: denne pakken signeres/notariseres ikke ennå (krever et Apple
+  Developer ID). Gatekeeper vil derfor blokkere appen på andre sine Mac-er –
+  høyreklikk → Åpne, eller `xattr -dr com.apple.quarantine "VG Generator.app"`,
+  for å omgå dette inntil signering er på plass.
+
+> **Modellvalg – lisens-fallgruve:** default-modellen er
+> Llama-3.2-3B-Instruct-Q4_K_M ([bartowski/Llama-3.2-3B-Instruct-GGUF](https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF)),
+> under Metas Llama 3.2 Community License (tillater redistribusjon). **Ikke**
+> bytt denne til Qwen2.5-3B-Instruct som en "drop-in"-oppgradering – i
+> motsetning til de andre Qwen2.5-størrelsene (1.5B/7B/14B/32B, alle
+> Apache-2.0) er 3B-varianten lisensiert under Alibabas "qwen-research"-lisens
+> (forskning/ikke-kommersielt, ikke redistribuerbar). Sjekk alltid lisensen på
+> nytt før default-modellen endres.
 
 ## Prosjektstruktur
 
@@ -126,14 +153,22 @@ prompts/
   system-prompt.md    # redaksjonell stil (delt kilde)
   sections.json       # seksjoner + forfatternavn
 server/
-  index.mjs           # /api/generate, /api/topics, /api/health
+  index.mjs           # /api/generate, /api/topics, /api/health, /api/tts
+  static.mjs          # statisk filservering for den pakkede appen
 scripts/
   store.mjs           # skjema, bilde-hash, skriv JSON + index
   llm.mjs             # delt LLM-logikk (generate, suggestTopics)
+  tts.mjs             # tekst-til-tale via macOS `say`
   env.mjs             # enkel .env-laster
   seed.mjs            # håndlagde eksempelsaker
   generate.mjs        # CLI-generator
   dev.mjs             # kjør backend + vite sammen
+  vendor-llama.mjs    # hent den bundlete llama-server-binæren
+electron/
+  main.mjs            # produksjons-entry: bundlet LLM + in-process backend
+  main.dev.mjs         # dev-entry: vindu mot :5173
+  llama.mjs            # spawn/overvåk llama-server
+  modelManager.mjs      # last ned GGUF-modellen med fremdrift
 public/
   articles/           # index.json + én JSON-fil per sak
   images/             # tilfeldige bilder (picsum, loremflickr, vg.no)
