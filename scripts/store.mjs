@@ -7,9 +7,16 @@ import { dialectInstruction } from './dialects.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const ROOT = join(__dirname, '..')
-export const ARTICLES_DIR = join(ROOT, 'public', 'articles')
-export const IMAGES_DIR = join(ROOT, 'public', 'images')
 export const PROMPTS_DIR = join(ROOT, 'prompts')
+
+// Where generated articles/images live. Defaults to the repo's public/ dir
+// (today's dev behavior, untouched). The packaged Electron app points this at
+// a writable userData directory instead, since the app bundle is read-only —
+// see electron/main.mjs. Must be set (if at all) before this module is first
+// imported, since these are resolved once at module load.
+export const DATA_ROOT = process.env.VGGEN_DATA_ROOT || join(ROOT, 'public')
+export const ARTICLES_DIR = join(DATA_ROOT, 'articles')
+export const IMAGES_DIR = join(DATA_ROOT, 'images')
 
 export const SYSTEM_PROMPT = readFileSync(
   join(PROMPTS_DIR, 'system-prompt.md'),
