@@ -4,7 +4,7 @@
 // returns null.
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { IMAGES_DIR } from './store.mjs'
+import { IMAGES_DIR, hashString } from './store.mjs'
 
 export const GEN_DIR = join(IMAGES_DIR, 'gen')
 
@@ -35,8 +35,16 @@ function sanitizeTags(query, max = 2) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function fetchImage(tags) {
-  const url = `https://loremflickr.com/1200/800/${tags}`
+async function fetchImage(tags, lock) {
+  // `lock` pins loremflickr's pseudo-random pick to a specific seed — without
+  // it, multiple articles that end up querying the *same* tag (e.g. the
+  // model gave no usable imageQuery, so several articles all fall through to
+  // the same section-default tag like "news") can get back-to-back requests
+  // that resolve to the exact same cached photo. Confirmed empirically:
+  // repeated same-tag requests without a lock sometimes collide; a per-
+  // article numeric lock reliably varies the result while staying
+  // deterministic for that one article.
+  const url = `https://loremflickr.com/1200/800/${tags}?lock=${lock}`
   const res = await fetch(url, {
     headers: { 'User-Agent': UA },
     signal: AbortSignal.timeout(25000),
@@ -60,10 +68,11 @@ export async function downloadArticleImage(id, query, section) {
     sanitizeTags(query, 1),
     SECTION_QUERY[section] || 'news',
   ].filter(Boolean)
+  const lock = hashString(id) % 1_000_000
 
   for (const tags of candidates) {
     try {
-      const buf = await fetchImage(tags)
+      const buf = await fetchImage(tags, lock)
       if (buf) {
         mkdirSync(GEN_DIR, { recursive: true })
         writeFileSync(join(GEN_DIR, `${id}.jpg`), buf)
