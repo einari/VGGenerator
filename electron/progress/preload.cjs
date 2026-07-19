@@ -12,4 +12,7 @@ contextBridge.exposeInMainWorld('vggen', {
   onProgress: (callback) => {
     ipcRenderer.on('model-download-progress', (_event, data) => callback(data))
   },
+  onStatus: (callback) => {
+    ipcRenderer.on('status', (_event, text) => callback(text))
+  },
 })

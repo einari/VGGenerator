@@ -13,10 +13,38 @@ import { createMainWindow } from './windows.mjs'
 import { requireAppleSilicon } from './platform.mjs'
 import { seedDataDir, distDir } from './paths.mjs'
 
-const { app, BrowserWindow } = electron
+const { app, BrowserWindow, dialog } = electron
 
 const BACKEND_PORT = Number(process.env.PORT || 8787)
 const LLAMA_PORT = Number(process.env.VGGEN_LLAMA_PORT || 8090)
+
+// Without this, launching the app a second time (e.g. a user double-clicking
+// it again because nothing visible happened yet during a slow first-run
+// model download/llama-server startup) would start a *second* full instance,
+// which would then fail to bind the same backend/llama-server ports the
+// first instance already holds. Electron recommends acquiring this before
+// app 'ready'.
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  let mainWindow = null
+
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+
+  main((win) => {
+    mainWindow = win
+  }).catch((err) => {
+    console.error('✖ Failed to start VG Generator:', err)
+    dialog.showErrorBox('VG Generator kunne ikke starte', err.message || String(err))
+    app.quit()
+  })
+}
 
 async function showProgressWindow() {
   const win = new BrowserWindow({
@@ -40,7 +68,7 @@ async function showProgressWindow() {
   return win
 }
 
-async function main() {
+async function main(onMainWindow) {
   // 1. Name the app before anything reads userData — otherwise packaged
   // (productName) vs. unpackaged `electron:start` testing resolve different
   // userData folders, silently splitting data across two locations.
@@ -59,7 +87,12 @@ async function main() {
   const { ensureSeeded } = await import('./seedData.mjs')
   ensureSeeded(dataRoot, seedDataDir())
 
-  // 5. Ensure the model is downloaded, showing progress only if needed.
+  // 5. Ensure the model is downloaded, showing progress only if needed. The
+  // progress window stays open (with an updated status) through step 6/8
+  // below too — closing it right after the download, before the LLM/backend
+  // are actually up, left a gap of several seconds to a minute or more with
+  // *no window visible at all*, which looked exactly like the app failing to
+  // start.
   const { ensureModel, isModelComplete } = await import('./modelManager.mjs')
   const modelsDir = join(app.getPath('userData'), 'models')
   let progressWin = null
@@ -69,7 +102,7 @@ async function main() {
   const resolvedModelPath = await ensureModel(modelsDir, (progress) => {
     progressWin?.webContents.send('model-download-progress', progress)
   })
-  progressWin?.close()
+  progressWin?.webContents.send('status', 'Starter modellen …')
 
   // 6. Spawn the bundled LLM.
   const { startLlamaServer, stopLlamaServer } = await import('./llama.mjs')
@@ -81,19 +114,19 @@ async function main() {
   process.env.LLM_BASE_URL = `http://127.0.0.1:${LLAMA_PORT}/v1`
 
   // 8. Start the backend in-process, serving the built frontend + data root.
+  progressWin?.webContents.send('status', 'Starter appen …')
   const { startServer } = await import('../server/index.mjs')
-  startServer({ port: BACKEND_PORT, staticRoot: distDir(), dataRoot })
+  await startServer({ port: BACKEND_PORT, staticRoot: distDir(), dataRoot })
 
-  // 9. Open the main window. No preload — the React app is a plain
-  // fetch()-based page, exactly as unaware of Electron as a browser tab.
-  const win = createMainWindow()
+  // 9. Open the main window hidden, and only swap it in for the progress
+  // window once it has actually finished loading — so there is never a
+  // moment with zero windows visible between the two.
+  const win = createMainWindow({ show: false })
   await win.loadURL(`http://127.0.0.1:${BACKEND_PORT}/`)
+  progressWin?.close()
+  win.show()
+  onMainWindow(win)
 
   // 10. Single-purpose utility app: closing the window quits the app.
   app.on('window-all-closed', () => app.quit())
 }
-
-main().catch((err) => {
-  console.error('✖ Failed to start VG Generator:', err)
-  app.quit()
-})

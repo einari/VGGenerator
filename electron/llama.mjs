@@ -9,18 +9,58 @@ import { llamaServerDir } from './paths.mjs'
 let child = null
 let exited = true
 
-async function waitUntilReady(port, { timeoutMs = 120_000, intervalMs = 300 } = {}) {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/v1/models`)
-      if (res.ok) return
-    } catch {
-      /* not up yet */
+/**
+ * Poll until llama-server responds, or fail fast the moment the process
+ * itself exits — without this, a llama-server that dies immediately (wrong
+ * port already taken, corrupt model file, missing binary) would otherwise
+ * poll uselessly for the full timeout before giving a generic, unhelpful
+ * "did not become ready" error instead of the process's real exit reason.
+ */
+function waitUntilReady(port, proc, { timeoutMs = 120_000, intervalMs = 300 } = {}) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs
+    let stderrTail = ''
+    const onStderr = (d) => {
+      stderrTail = (stderrTail + d).slice(-2000)
     }
-    await new Promise((r) => setTimeout(r, intervalMs))
-  }
-  throw new Error(`llama-server did not become ready on port ${port} within ${timeoutMs}ms`)
+    proc.stderr?.on('data', onStderr)
+
+    const onExit = (code, signal) => {
+      cleanup()
+      reject(
+        new Error(
+          `llama-server exited before becoming ready (code=${code} signal=${signal})${
+            stderrTail ? `: ${stderrTail.trim().split('\n').pop()}` : ''
+          }`,
+        ),
+      )
+    }
+    proc.once('exit', onExit)
+    proc.once('error', onExit)
+
+    function cleanup() {
+      proc.off('exit', onExit)
+      proc.off('error', onExit)
+      proc.stderr?.off('data', onStderr)
+    }
+
+    ;(async function poll() {
+      while (Date.now() < deadline) {
+        try {
+          const res = await fetch(`http://127.0.0.1:${port}/v1/models`)
+          if (res.ok) {
+            cleanup()
+            return resolve()
+          }
+        } catch {
+          /* not up yet */
+        }
+        await new Promise((r) => setTimeout(r, intervalMs))
+      }
+      cleanup()
+      reject(new Error(`llama-server did not become ready on port ${port} within ${timeoutMs}ms`))
+    })()
+  })
 }
 
 /** Spawn llama-server with `modelPath` on `port`, resolving once it's ready. */
@@ -38,7 +78,7 @@ export async function startLlamaServer({ modelPath, port }) {
     child = null
   })
 
-  await waitUntilReady(port)
+  await waitUntilReady(port, child)
   return child
 }
 

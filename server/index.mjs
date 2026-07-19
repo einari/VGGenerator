@@ -181,23 +181,33 @@ export function createRequestListener({ staticRoot, dataRoot } = {}) {
 }
 
 /**
- * Start listening. `staticRoot`/`dataRoot` are only passed by the packaged
- * Electron app (see electron/main.mjs); omitted, this behaves exactly as
- * today (`/api/*` only).
+ * Start listening, resolving with the server once bound (or rejecting on a
+ * bind failure, e.g. EADDRINUSE from a leftover process on the same port —
+ * without this, a failed .listen() call became an unhandled 'error' event
+ * that silently crashed the process instead of surfacing a clear reason).
+ * `staticRoot`/`dataRoot` are only passed by the packaged Electron app (see
+ * electron/main.mjs); omitted, this behaves exactly as today (`/api/*` only).
  */
 export function startServer({ port = DEFAULT_PORT, staticRoot, dataRoot } = {}) {
   const server = createServer(createRequestListener({ staticRoot, dataRoot }))
-  server.listen(port, () => {
-    console.log(`VG Generator backend på http://127.0.0.1:${port}`)
-    console.log(`  LLM: ${process.env.LLM_BASE_URL || 'http://127.0.0.1:8000/v1'}`)
-    console.log(`  API-nøkkel: ${process.env.LLM_API_KEY ? 'satt (.env)' : 'ikke satt'}`)
+  return new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(port, () => {
+      server.off('error', reject)
+      console.log(`VG Generator backend på http://127.0.0.1:${port}`)
+      console.log(`  LLM: ${process.env.LLM_BASE_URL || 'http://127.0.0.1:8000/v1'}`)
+      console.log(`  API-nøkkel: ${process.env.LLM_API_KEY ? 'satt (.env)' : 'ikke satt'}`)
+      resolve(server)
+    })
   })
-  return server
 }
 
 // Only auto-start when run directly (`yarn server`, scripts/dev.mjs) — not
 // when imported by the Electron main process, which calls startServer() itself
 // with staticRoot/dataRoot after setting up the bundled LLM.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  startServer()
+  startServer().catch((err) => {
+    console.error('✖ Kunne ikke starte serveren:', err.message)
+    process.exit(1)
+  })
 }

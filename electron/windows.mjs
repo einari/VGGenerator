@@ -9,11 +9,12 @@
 import electron from 'electron'
 const { BrowserWindow } = electron
 
-export function createMainWindow() {
+export function createMainWindow({ show = true } = {}) {
   return new BrowserWindow({
     width: 1280,
     height: 860,
     title: 'VG Generator',
+    show,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

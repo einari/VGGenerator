@@ -7,7 +7,14 @@ const BASE = import.meta.env.BASE_URL // usually "/"
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(path, { cache: 'no-cache' })
   if (!res.ok) throw new Error(`${path} -> ${res.status}`)
-  return res.json() as Promise<T>
+  try {
+    return (await res.json()) as T
+  } catch {
+    // A non-JSON 200 (e.g. an HTML error/fallback page) throws a cryptic
+    // raw parse error otherwise ("Unexpected token '<' ... is not valid
+    // JSON") with no indication of which request it came from.
+    throw new Error(`${path} -> respons var ikke gyldig JSON`)
+  }
 }
 
 let cache: Article[] | null = null

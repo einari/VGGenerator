@@ -47,8 +47,8 @@
 </style>
 </head>
 <body>
-  <h1>Laster ned den lokale modellen …</h1>
-  <p>Skjer bare første gang. Appen starter automatisk når den er ferdig.</p>
+  <h1 id="title">Laster ned den lokale modellen …</h1>
+  <p id="subtitle">Skjer bare første gang. Appen starter automatisk når den er ferdig.</p>
   <div class="spinner" id="spinner"></div>
   <div class="bar" id="bar"><div id="fill"></div></div>
   <div class="pct" id="pct"></div>
@@ -70,6 +70,17 @@
         // just report bytes received so far, rather than a meaningless bar.
         document.getElementById('pct').textContent = `${mb(receivedBytes)} MB lastet ned`
       }
+    })
+    // Sent once the download is done and the bundled LLM/backend are
+    // starting up — this window stays open through that whole stretch so
+    // there's never a gap with no window visible at all (which looked
+    // exactly like the app failing to launch).
+    window.vggen.onStatus((text) => {
+      document.getElementById('title').textContent = text
+      document.getElementById('subtitle').style.display = 'none'
+      document.getElementById('bar').style.display = 'none'
+      document.getElementById('pct').textContent = ''
+      document.getElementById('spinner').style.display = 'block'
     })
   </script>
 </body>
