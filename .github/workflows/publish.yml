@@ -1,0 +1,80 @@
+name: Publish
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        default: '0.0.0'
+        type: string
+      release-notes:
+        description: 'Release notes'
+        required: true
+        default: 'No release notes'
+        type: string
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      publish: ${{ steps.release.outputs.should-publish }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Release
+        id: release
+        uses: cratis/release-action@v1
+        with:
+          version: ${{ github.event.inputs.version }}
+          release-notes: ${{ github.event.inputs.release-notes }}
+
+  build-macos:
+    if: needs.release.outputs.publish == 'true'
+    needs: [release]
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Set package version
+        run: npm pkg set version="${{ needs.release.outputs.version }}"
+
+      - name: Build and package the macOS app
+        run: yarn electron:build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload zip to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ needs.release.outputs.version }}" release/*.zip \
+            --repo ${{ github.repository }} --clobber
