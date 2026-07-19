@@ -1,0 +1,43 @@
+appId: no.einari.vggenerator
+productName: VG Generator
+directories:
+  output: release
+# No native/runtime npm dependencies to rebuild (zero-dependency backend,
+# React is the only runtime dep and needs no rebuild). Also works around
+# electron-builder's native-rebuild step rewriting package.json in place —
+# confirmed happening in this environment.
+npmRebuild: false
+files:
+  - dist/**/*
+  - '!dist/articles/**'
+  - '!dist/images/**'
+  - electron/**/*
+  - server/**/*
+  - scripts/**/*
+  - prompts/**/*
+  - package.json
+  - '!node_modules/**'
+extraResources:
+  - from: public/articles
+    to: seed-data/articles
+  # Includes images/gen/ (per-article generated images for existing seed
+  # articles) — most seed articles reference /images/gen/<id>.jpg, not just
+  # the pooled img-NN.jpg fallback, so excluding it left those images broken
+  # in the packaged app.
+  - from: public/images
+    to: seed-data/images
+  - from: .vendor/llama-server
+    to: llama-server
+mac:
+  # zip only — the dmg target (electron-builder's bundled Python `dmgbuild`)
+  # hit a reproducible Spotlight/mdworker race on unmount in this environment
+  # ("Unable to detach device cleanly ... Resource busy"), confirmed by
+  # mdworker_shared processes spawning at the exact moment of each failed
+  # build. zip is a fully valid distributable (unzip -> drag .app to
+  # Applications); revisit dmg later if it's worth chasing further.
+  target:
+    - target: zip
+      arch: [arm64]
+  identity: null
+  category: public.app-category.entertainment
+afterSign: electron/notarize.mjs

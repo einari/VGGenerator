@@ -20,6 +20,11 @@ dist-ssr
 # Runtime-downloaded per-article images
 /public/images/gen/
 
+# Vendored llama-server binary (downloaded by scripts/vendor-llama.mjs) and
+# electron-builder's packaging output.
+/.vendor/
+/release/
+
 # Playwright / verification artifacts
 .playwright-mcp
 /*.png
