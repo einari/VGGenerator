@@ -17,7 +17,7 @@
     "electron:start": "electron electron/main.mjs",
     "vendor:llama": "node scripts/vendor-llama.mjs",
     "electron:pack": "electron-builder --dir --mac",
-    "electron:build": "yarn build && node scripts/vendor-llama.mjs && electron-builder --mac"
+    "electron:build": "yarn build && node scripts/vendor-llama.mjs && electron-builder --mac --publish never"
   },
   "dependencies": {
     "react": "^19.2.7",
