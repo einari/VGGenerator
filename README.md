@@ -132,10 +132,17 @@ yarn electron:build  # bygg den ferdige .zip (pakk ut, dra .app til Programmer)
   `~/Library/Application Support/VG Generator/models/` med en fremdriftsskjerm.
   Genererte saker/bilder havner i samme mappes `data/`-undermappe – appens
   `.app`-pakke selv er skrivebeskyttet.
-- **Usignert**: denne pakken signeres/notariseres ikke ennå (krever et Apple
-  Developer ID). Gatekeeper vil derfor blokkere appen på andre sine Mac-er –
-  høyreklikk → Åpne, eller `xattr -dr com.apple.quarantine "VG Generator.app"`,
-  for å omgå dette inntil signering er på plass.
+- **Usignert**: denne pakken er ikke notarisert av Apple ennå (krever et Apple
+  Developer ID) – appen er kun ad-hoc-signert (gratis, ingen konto nødvendig),
+  så «ukjent utvikler»-varselet vil fortsatt dukke opp på andre sine Mac-er.
+  Høyreklikk → Åpne (eller `xattr -dr com.apple.quarantine "VG Generator.app"`)
+  omgår dette. Ad-hoc-signeringen (electron-builder sin `afterSign`-hook,
+  [electron/notarize.mjs](electron/notarize.mjs)) er derimot nødvendig for at
+  appen i det hele tatt skal la seg åpne – uten den viser macOS feilaktig
+  «"VG Generator" is damaged and can't be opened», siden electron-builder
+  legger til `app.asar` og bundlete ressurser *etter* at Electron sin egen
+  build-tids-signatur ble laget, som gjør den signaturen ugyldig for det
+  ferdige innholdet.
 
 > **Modellvalg – lisens-fallgruve:** default-modellen er
 > Llama-3.2-3B-Instruct-Q4_K_M ([bartowski/Llama-3.2-3B-Instruct-GGUF](https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF)),
